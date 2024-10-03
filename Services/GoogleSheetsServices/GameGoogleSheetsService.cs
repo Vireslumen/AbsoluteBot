@@ -1,4 +1,5 @@
 ﻿using System.Text.RegularExpressions;
+using FuzzySharp;
 using Google.Apis.Sheets.v4.Data;
 using Serilog;
 
@@ -264,9 +265,25 @@ public class GameGoogleSheetsService(GoogleSheetsBaseService googleSheetsBaseSer
     /// <returns>Детали игры, если она найдена; иначе null.</returns>
     private async Task<string?> FindAndReturnGameDetailsAsync(IList<IList<object>> gameList, string gameName)
     {
+        const double minimumSimilarityThreshold = 80.0;
+        double highestSimilarity = 0;
+        string? mostSimilarGame = null;
+
         foreach (var row in gameList)
-            if (IsRowValid(row) && row[0].ToString() is { } findGameName && IsGameNameMatching(findGameName, gameName))
-                return await GetGameDetailsAsync(findGameName).ConfigureAwait(false);
+        {
+            if (!IsRowValid(row) || row[0].ToString() is not { } foundGameName) continue;
+            // Вычисление коэффициента схожести между названиями
+            var similarity = GetGameNameSimilarity(foundGameName, gameName);
+
+            // Поиск игры с самым высоким процентом схожести
+            if (!(similarity > highestSimilarity)) continue;
+            highestSimilarity = similarity;
+            mostSimilarGame = foundGameName;
+        }
+
+        // Использование константы для проверки порога схожести
+        if (highestSimilarity >= minimumSimilarityThreshold && mostSimilarGame != null)
+            return await GetGameDetailsAsync(mostSimilarGame).ConfigureAwait(false);
 
         return null;
     }
@@ -290,7 +307,8 @@ public class GameGoogleSheetsService(GoogleSheetsBaseService googleSheetsBaseSer
     /// <returns>Индекс строки игры или -1, если игра не найдена.</returns>
     private async Task<int> FindGameRowAsync(string gameName)
     {
-        var response = await googleSheetsBaseService.GetValuesAsync($"{GameSheetName}!{GameNameColumnLetter}:{GameNameColumnLetter}").ConfigureAwait(false);
+        var response = await googleSheetsBaseService.GetValuesAsync($"{GameSheetName}!{GameNameColumnLetter}:{GameNameColumnLetter}")
+            .ConfigureAwait(false);
 
         if (response.Values == null) return -1;
 
@@ -378,6 +396,18 @@ public class GameGoogleSheetsService(GoogleSheetsBaseService googleSheetsBaseSer
     }
 
     /// <summary>
+    ///     Вычисляет процент схожести между двумя названиями игр.
+    /// </summary>
+    /// <param name="foundGameName">Найденное название игры.</param>
+    /// <param name="gameName">Название игры для поиска.</param>
+    /// <returns>Процент схожести.</returns>
+    private static double GetGameNameSimilarity(string foundGameName, string gameName)
+    {
+        // Использование FuzzySharp для вычисления процента схожести
+        return Fuzz.Ratio(foundGameName, gameName);
+    }
+
+    /// <summary>
     ///     Получает следующий доступный номер игры для вставки в таблицу.
     /// </summary>
     /// <returns>Номер следующей игры для вставки.</returns>
@@ -428,17 +458,6 @@ public class GameGoogleSheetsService(GoogleSheetsBaseService googleSheetsBaseSer
     private static bool IsGameNameInvalid(string gameName)
     {
         return string.IsNullOrEmpty(gameName);
-    }
-
-    /// <summary>
-    ///     Проверяет, совпадает ли найденное название игры с искомым названием.
-    /// </summary>
-    /// <param name="foundGameName">Найденное название игры.</param>
-    /// <param name="gameName">Название игры для поиска.</param>
-    /// <returns>True, если названия совпадают; иначе false.</returns>
-    private static bool IsGameNameMatching(string? foundGameName, string gameName)
-    {
-        return foundGameName?.Equals(gameName, StringComparison.InvariantCultureIgnoreCase) ?? false;
     }
 
     /// <summary>
