@@ -71,7 +71,8 @@ public class MentionCommand(ChatGeminiService geminiService, CommandExecutionSer
         // Если бот ответил командой, ты эта команда выполняется и записывается в историю сообщений
         context.Username = _botName;
         response = await commandExecutionService.ExecuteCommandAsync(command.Response, context).ConfigureAwait(false);
-        if (!string.IsNullOrEmpty(response)) await geminiService.AddUserMessageToChatHistory(response, "System").ConfigureAwait(false);
+        if (!string.IsNullOrEmpty(response))
+            await geminiService.AddUserMessageToChatHistoryOnPlatform(response, _botName, command.Context.Platform).ConfigureAwait(false);
         response ??= command.Response;
 
         return response;
