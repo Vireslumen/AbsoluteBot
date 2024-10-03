@@ -110,11 +110,11 @@ public class GameProgressService
         {
             var progressPercentage = await CalculateGameProgressAsync().ConfigureAwait(false);
 
-            if (progressPercentage >= 100) return $"Игра '{_lastGameName}' завершена на 100%!";
+            if (_lastGameName == null) return "Не найдена игра на стриме.";
 
-            if (progressPercentage < 0 || _lastGameName == null || _gameProgressData[_lastGameName].TotalPlaytimeMinutes == 0)
+            if (progressPercentage < 0 || _gameProgressData[_lastGameName].TotalPlaytimeMinutes == 0)
                 return
-                    $"Прогресс игры '{_lastGameName}' не может быть рассчитан, так как полное время прохождения неизвестно.";
+                    $"Прогресс игры '{_lastGameName}' не может быть рассчитан, так как полное время прохождения неизвестно. Часов проведено в игре: {_gameProgressData[_lastGameName].TotalPlaytimeMinutes / 60}.";
 
             return $"Игра '{_lastGameName}' пройдена на {progressPercentage}%";
         }
@@ -313,13 +313,13 @@ public class GameProgressService
     }
 
     /// <summary>
-    ///     Записывает бесконечный прогресс в Google Sheets.
+    ///     Записывает текущее время игры в Google Sheets.
     /// </summary>
     /// <param name="gameProgress">Объект прогресса игры.</param>
     private async Task WriteCurrentGameTimeAsync(GameProgress gameProgress)
     {
         if (_lastGameName == null) return;
-        await gameGoogleSheetsService.UpdateGameProgressAsync(_lastGameName, $"{gameProgress.CurrentPlaytimeMinutes / 60}").ConfigureAwait(false);
+        await gameGoogleSheetsService.UpdateGameProgressAsync(_lastGameName, $"{gameProgress.CurrentPlaytimeMinutes / 60} ч.").ConfigureAwait(false);
         await SaveProgressDataAsync(_gameProgressData).ConfigureAwait(false);
     }
 
