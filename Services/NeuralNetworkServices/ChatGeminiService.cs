@@ -161,7 +161,7 @@ public partial class ChatGeminiService(ConfigService configService, GeminiSettin
         }
     }
 
-    [GeneratedRegex("#(.*?)#")]
+    [GeneratedRegex("<<(.*?)>>")]
     private static partial Regex CommandExpressionRegex();
 
     /// <summary>
@@ -441,7 +441,7 @@ public partial class ChatGeminiService(ConfigService configService, GeminiSettin
     private static partial Regex RuEnSpaceSignsRegex();
 
     /// <summary>
-    ///     Метод для извлечения первого выражения команды вида #!команда текст# из строки, если оно есть
+    ///     Метод для извлечения первого выражения команды вида &lt;&lt;!команда текст&gt;&gt; из строки, если оно есть
     /// </summary>
     /// <param name="input">Исходный текст</param>
     /// <returns>Команда, если она есть, если нет изначальный текст</returns>
