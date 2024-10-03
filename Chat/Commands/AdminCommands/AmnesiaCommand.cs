@@ -21,12 +21,8 @@ public class AmnesiaCommand(ChatGeminiService geminiService) : BaseCommand
 
     protected override async Task<string> ExecuteLogicAsync(ParsedCommand command)
     {
-        if (!await geminiService.ClearPlatformChatHistoryAsync(command.Context.Platform).ConfigureAwait(false))
-            return "Не удалось стереть память...";
-
-        return await geminiService.AddUserMessageToChatHistoryOnPlatform("Произошло что-то из-за чего ты решила стереть себе память.", "System",
-            command.Context.Platform).ConfigureAwait(false)
-            ? "Память успешно стёрта..."
-            : "Не удалось вспомнить, что память стёрта.";
+        return await geminiService.ClearPlatformChatHistoryAsync(command.Context.Platform).ConfigureAwait(false)
+            ? "Команда успешно применена."
+            : "Не удалось применить команду.";
     }
 }
