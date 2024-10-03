@@ -1,13 +1,12 @@
 MIT License
 
-Copyright (c) 2024 Vireslumen
+Copyright (c) [Год] [Ваше Имя]
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
 to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+copies of the Software, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
@@ -21,6 +20,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ADDITIONAL RESTRICTIONS:
-1. This software is provided for **portfolio and educational purposes only**. 
-2. The creation of similar bots or applications replicating the core functionalities of this software for **commercial purposes** is strictly prohibited.
-3. The use of this software to interact with third-party services in a way that violates their **Terms of Service** (ToS) is not permitted. The author is not responsible for any misuse that may result in breaches of platform rules or policies.
+1. This software is provided for portfolio and educational purposes only.
+2. The creation of similar bots or applications replicating the core functionalities of this software for commercial purposes is strictly prohibited.
+3. The use of this software to interact with third-party services in a way that violates their Terms of Service (ToS) is not permitted. The author is not responsible for any misuse that may result in breaches of platform rules or policies.
