@@ -1,10 +1,11 @@
-﻿using AbsoluteBot.Chat.Context;
+﻿using System.Globalization;
+using AbsoluteBot.Chat.Context;
 using AbsoluteBot.Models;
 using AbsoluteBot.Services.UserManagementServices;
-using System.Globalization;
 
 namespace AbsoluteBot.Chat.Commands.UserCommands;
 
+#pragma warning disable IDE0300
 /// <summary>
 ///     Команда добавления своего дня рождения в список для оповещения ботом.
 /// </summary>
@@ -27,13 +28,11 @@ public class AddBirthdayCommand(BirthdayService birthdayService) : BaseCommand, 
         var platform = context.Platform;
         var username = context.Username;
 
-        var parameters = command.Parameters.Split(' ');
-        if (parameters.Length < 2 ||
-            !int.TryParse(parameters[0], out var day) ||
-            !int.TryParse(parameters[1], out var month))
-            return $"Неверный формат даты. Используйте: {Name} {Parameters}";
-
-        var date = new DateTime(DateTime.MinValue.Year, month, day);
+        string[] formats = {"d M", "d MM", "d MMMM", "dd M", "dd MM", "dd MMMM"};
+        if (!DateTime.TryParseExact(command.Parameters, formats, new CultureInfo("ru-RU"), DateTimeStyles.None, out var date))
+            return
+                "Ошибка: указан некорректный формат даты. Используйте числовой формат \"день месяц\" или \"день месяц (словом)\", например: \"23 сентября\" или \"23 09\".";
+        date = new DateTime(DateTime.MinValue.Year, date.Month, date.Day);
         var formattedDate = date.ToString("d MMMM", new CultureInfo("ru-RU"));
         return await birthdayService.AddOrUpdateUserBirthday(username, platform, date)
             .ConfigureAwait(false)
