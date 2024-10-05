@@ -30,17 +30,11 @@ public class BirthdayCommand(BirthdayService birthdayService) : BaseCommand, IPa
         if (command.Parameters.Length > 0)
         {
             var username = command.Parameters;
-            var daysUntilBirthday = birthdayService.GetDaysUntilUserBirthdayForPlatform(username, platform);
-            return Task.FromResult(daysUntilBirthday == -1
-                ? $"У пользователя {username} либо не зарегистрирован день рождения, либо уведомления о нём отключены на платформе {platform}."
-                : $"Дней до дня рождения пользователя {username} осталось: {daysUntilBirthday}");
+            return Task.FromResult(birthdayService.GetTimeUntilUserBirthdayForPlatform(username, platform));
         }
 
         // Если никнейм не передан, выводится количество дней до ближайшего дня рождения среди зарегистрированных пользователей
-        var daysUntilNextBirthday = birthdayService.GetDaysUntilNextBirthdayForPlatform(platform);
-        return Task.FromResult(daysUntilNextBirthday == null
-            ? "На платформе нет зарегистрированных дней рождений с включенными уведомлениями."
-            : $"Дней до ближайшего дня рождения осталось: {daysUntilNextBirthday.Value.daysUntil}, оно у {daysUntilNextBirthday.Value.username}.");
+        return Task.FromResult(birthdayService.GetTimeUntilNextBirthdayForPlatform(platform));
     }
 
     protected override bool HasRequiredParameters(ref ParsedCommand command) => true;

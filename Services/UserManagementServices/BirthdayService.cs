@@ -138,55 +138,60 @@ public class BirthdayService(ChatGptService chatGptService) : IAsyncInitializabl
     }
 
     /// <summary>
-    ///     Получает количество дней до следующего дня рождения на указанной платформе.
+    ///     Получение информации о времени до следующего дня рождения на указанной платформе.
     /// </summary>
     /// <param name="platform">Платформа для получения ближайшего дня рождения.</param>
     /// <returns>
-    ///     Кортеж, содержащий количество дней до следующего дня рождения и имя пользователя,
-    ///     или <c>null</c>, если ближайший день рождения не найден.
+    ///     Сообщение с количеством дней, часов и минут до следующего дня рождения, или поздравительное сообщение, если
+    ///     день рождения сегодня.
     /// </returns>
-    public (int daysUntil, string username)? GetDaysUntilNextBirthdayForPlatform(string platform)
+    public string GetTimeUntilNextBirthdayForPlatform(string platform)
     {
         try
         {
-            var today = DateTime.Today;
-            var upcomingBirthdays = FindNextBirthdayForPlatform(platform, today);
-            if (upcomingBirthdays == null) return null;
-            var daysUntilNextBirthday = (upcomingBirthdays.NextBirthday - today).Days;
-            return (daysUntilNextBirthday, upcomingBirthdays.User.UserName);
+            var today = DateTime.Now;
+            var upcomingBirthdays = GetUpcomingBirthdaysForPlatform(platform, today);
+            if (upcomingBirthdays.Count == 0)
+                return "Ближайших дней рождения не найдено.";
+
+            var nextBirthdayDate = CalculateNextBirthdayDate(upcomingBirthdays.First().DateOfBirth, today);
+            var usersWithNextBirthday = GetUsersWithNextBirthday(upcomingBirthdays, nextBirthdayDate, today);
+
+            return GenerateBirthdayMessage(usersWithNextBirthday, nextBirthdayDate, today);
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Ошибка при получении следующего дня рождения.");
-            return null;
+            return "Произошла ошибка при расчёте времени до дня рождения.";
         }
     }
 
     /// <summary>
-    ///     Получает количество дней до дня рождения пользователя на указанной платформе.
+    ///     Получение информации о времени до дня рождения указанного пользователя на указанной платформе.
     /// </summary>
     /// <param name="username">Имя пользователя.</param>
     /// <param name="platform">Название платформы.</param>
-    /// <returns>Количество дней до дня рождения или -1, если день рождения не найден.</returns>
-    public int GetDaysUntilUserBirthdayForPlatform(string username, string platform)
+    /// <returns>
+    ///     Сообщение с количеством дней, часов и минут до дня рождения пользователя, или поздравительное сообщение, если
+    ///     день рождения сегодня.
+    /// </returns>
+    public string GetTimeUntilUserBirthdayForPlatform(string username, string platform)
     {
         try
         {
             var userInfo = GetUserBirthdayInfo(username);
             if (userInfo == null || !userInfo.NotifyOnPlatforms.TryGetValue(platform, out var notify) || !notify)
-                return -1;
+                return "Информация о дне рождения не найдена или уведомления отключены.";
 
-            var today = DateTime.Today;
-            var nextBirthday = userInfo.DateOfBirth.AddYears(today.Year - userInfo.DateOfBirth.Year);
+            var today = DateTime.Now;
+            var nextBirthday = CalculateNextBirthdayDate(userInfo.DateOfBirth, today);
 
-            if (nextBirthday < today) nextBirthday = nextBirthday.AddYears(1);
-
-            return (nextBirthday - today).Days;
+            return GenerateBirthdayMessage(new List<UserBirthdayInfo> {userInfo}, nextBirthday, today);
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Ошибка расчёта дней до дня рождения пользователя.");
-            return -1;
+            return "Произошла ошибка при расчёте времени до дня рождения.";
         }
     }
 
@@ -200,6 +205,19 @@ public class BirthdayService(ChatGptService chatGptService) : IAsyncInitializabl
         return _userBirthdayInfos.Where(u => u.DateOfBirth.Day == today.Day && u.DateOfBirth.Month == today.Month)
             .Select(u => u.Nicknames)
             .ToList();
+    }
+
+    /// <summary>
+    ///     Вычисление следующей даты дня рождения на основе текущей даты.
+    /// </summary>
+    /// <param name="dateOfBirth">Дата рождения пользователя.</param>
+    /// <param name="currentDate">Текущая дата.</param>
+    /// <returns>Дата следующего дня рождения.</returns>
+    private static DateTime CalculateNextBirthdayDate(DateTime dateOfBirth, DateTime currentDate)
+    {
+        var currentDateOnly = currentDate.Date;
+        var nextBirthday = dateOfBirth.AddYears(currentDateOnly.Year - dateOfBirth.Year);
+        return nextBirthday < currentDateOnly ? nextBirthday.AddYears(1) : nextBirthday;
     }
 
     /// <summary>
@@ -221,25 +239,30 @@ public class BirthdayService(ChatGptService chatGptService) : IAsyncInitializabl
     }
 
     /// <summary>
-    ///     Находит ближайший день рождения пользователя на указанной платформе.
+    ///     Генерация сообщения о времени до следующего дня рождения.
     /// </summary>
-    /// <param name="platform">Платформа для поиска ближайшего дня рождения.</param>
+    /// <param name="usersWithNextBirthday">Список пользователей с ближайшим днём рождения.</param>
+    /// <param name="nextBirthdayDate">Дата следующего дня рождения.</param>
     /// <param name="today">Текущая дата.</param>
-    /// <returns>
-    ///     Объект, содержащий информацию о пользователе и его следующем дне рождения, или <c>null</c>, если ближайший
-    ///     день рождения не найден.
-    /// </returns>
-    private dynamic? FindNextBirthdayForPlatform(string platform, DateTime today)
+    /// <returns>Сообщение о времени до дня рождения.</returns>
+    private static string GenerateBirthdayMessage(List<UserBirthdayInfo> usersWithNextBirthday, DateTime nextBirthdayDate, DateTime today)
     {
-        return _userBirthdayInfos
-            .Where(u => u.NotifyOnPlatforms.TryGetValue(platform, out var notify) && notify)
-            .Select(u => new
-            {
-                User = u,
-                NextBirthday = u.DateOfBirth.AddYears(today.Year - u.DateOfBirth.Year)
-            })
-            .Where(u => u.NextBirthday >= today)
-            .MinBy(u => u.NextBirthday);
+        var timeUntilNextBirthday = nextBirthdayDate - today;
+        var userNames = string.Join(", ", usersWithNextBirthday.Select(u => u.UserName));
+        var isSingleUser = usersWithNextBirthday.Count == 1;
+        var userWord = isSingleUser ? "пользователя" : "пользователей";
+
+        if (nextBirthdayDate.Date == today.Date) return $"Сегодня день рождения {userWord} {userNames}!";
+
+        if (timeUntilNextBirthday.TotalDays < 1)
+        {
+            var timeUnit = timeUntilNextBirthday.Hours > 0 ? "Часов" : "Минут";
+            var timeValue = timeUntilNextBirthday.Hours > 0 ? timeUntilNextBirthday.Hours : timeUntilNextBirthday.Minutes;
+
+            return $"{timeUnit} до дня рождения {userWord} {userNames} осталось: {timeValue}.";
+        }
+
+        return $"Дней до дня рождения {userWord} {userNames} осталось: {timeUntilNextBirthday.Days}.";
     }
 
     /// <summary>
@@ -258,6 +281,28 @@ public class BirthdayService(ChatGptService chatGptService) : IAsyncInitializabl
     }
 
     /// <summary>
+    ///     Получение списка пользователей с ближайшими днями рождения на указанной платформе.
+    /// </summary>
+    /// <param name="platform">Платформа для поиска ближайших дней рождения.</param>
+    /// <param name="today">Текущая дата.</param>
+    /// <returns>Список информации о пользователях с ближайшими днями рождения.</returns>
+    private List<UserBirthdayInfo> GetUpcomingBirthdaysForPlatform(string platform, DateTime today)
+    {
+        var todayDate = today.Date;
+        return _userBirthdayInfos
+            .Where(u => u.NotifyOnPlatforms.TryGetValue(platform, out var notify) && notify)
+            .Select(u => new
+            {
+                User = u,
+                NextBirthday = u.DateOfBirth.AddYears(todayDate.Year - u.DateOfBirth.Year)
+            })
+            .Where(u => u.NextBirthday >= todayDate)
+            .OrderBy(u => u.NextBirthday)
+            .Select(u => u.User)
+            .ToList();
+    }
+
+    /// <summary>
     ///     Получает информацию о дне рождения пользователя по его имени.
     /// </summary>
     /// <param name="username">Имя пользователя.</param>
@@ -267,6 +312,21 @@ public class BirthdayService(ChatGptService chatGptService) : IAsyncInitializabl
         return _userBirthdayInfos
             .FirstOrDefault(u => u.Nicknames.Any(nickname =>
                 nickname.Equals(username, StringComparison.InvariantCultureIgnoreCase)));
+    }
+
+    /// <summary>
+    ///     Получение списка пользователей с ближайшим днём рождения.
+    /// </summary>
+    /// <param name="upcomingBirthdays">Список пользователей с предстоящими днями рождения.</param>
+    /// <param name="nextBirthdayDate">Дата следующего дня рождения.</param>
+    /// <param name="today">Текущая дата.</param>
+    /// <returns>Список пользователей с ближайшим днём рождения.</returns>
+    private static List<UserBirthdayInfo> GetUsersWithNextBirthday(List<UserBirthdayInfo> upcomingBirthdays, DateTime nextBirthdayDate,
+        DateTime today)
+    {
+        return upcomingBirthdays
+            .Where(u => CalculateNextBirthdayDate(u.DateOfBirth, today).Date == nextBirthdayDate.Date)
+            .ToList();
     }
 
     /// <summary>
