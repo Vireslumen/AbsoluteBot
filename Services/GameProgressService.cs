@@ -114,7 +114,7 @@ public class GameProgressService
 
             if (progressPercentage < 0 || _gameProgressData[_lastGameName].TotalPlaytimeMinutes == 0)
                 return
-                    $"Прогресс игры '{_lastGameName}' не может быть рассчитан, так как полное время прохождения неизвестно. Часов проведено в игре: {_gameProgressData[_lastGameName].TotalPlaytimeMinutes / 60}.";
+                    $"Прогресс игры '{_lastGameName}' не может быть рассчитан, так как полное время прохождения неизвестно. Часов проведено в игре: {_gameProgressData[_lastGameName].CurrentPlaytimeMinutes / 60}.";
 
             return $"Игра '{_lastGameName}' пройдена на {progressPercentage}%";
         }
