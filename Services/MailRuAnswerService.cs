@@ -14,7 +14,7 @@ public partial class MailRuAnswerService(HttpClient httpClient)
     private const string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36";
     private const string AcceptLanguage = "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7";
     private const string GoogleSearchUrlTemplate = "https://www.google.com/search?safe=active&q={0}+otvet.mail.ru";
-    private const string MailRuApiUrlTemplate = "https://otvet.mail.ru/api/v2/question?qid={0}";
+    private const string MailRuApiUrlTemplate = "https://otvet.mail.ru/api/v2/question?qid=";
     private const int MaxCacheSize = 100;
     private readonly HashSet<string> _oldAnswers = new();
     private readonly Random _random = new();
@@ -47,7 +47,7 @@ public partial class MailRuAnswerService(HttpClient httpClient)
                 return "Ответа нет!";
 
             // Запрос данных с Mail.ru
-            var mailRuApiUrl = string.Format(MailRuApiUrlTemplate, questionId);
+            var mailRuApiUrl = $"{MailRuApiUrlTemplate}{questionId}";
             var mailRuResponse = await httpClient.GetStringAsync(mailRuApiUrl).ConfigureAwait(false);
             var mailRuAnswer = JsonSerializer.Deserialize<MailRuAnswer>(mailRuResponse);
             if (mailRuAnswer == null) return null;

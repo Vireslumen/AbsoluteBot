@@ -13,7 +13,7 @@ namespace AbsoluteBot.Services;
 /// </summary>
 public partial class HowLongToBeatService
 {
-    private const string SearchUrlTemplate = "https://howlongtobeat.com/api/search/{0}";
+    private const string SearchUrlTemplate = "https://howlongtobeat.com/api/search/";
     private const string BaseUrl = "https://howlongtobeat.com";
     private const string AcceptLanguageHeader = "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7";
     private const string AcceptHeader = "*/*";
@@ -98,7 +98,7 @@ public partial class HowLongToBeatService
     /// <returns>URL для выполнения поиска игры.</returns>
     private static string BuildSearchUrl(string searchKey)
     {
-        return string.Format(SearchUrlTemplate, searchKey);
+        return $"{SearchUrlTemplate}{searchKey}";
     }
 
     /// <summary>
