@@ -1,16 +1,17 @@
-﻿using Serilog;
+﻿using System.Text.RegularExpressions;
+using Serilog;
 
 namespace AbsoluteBot.Services.MediaServices;
 #pragma warning disable IDE0028
 /// <summary>
 ///     Сервис для поиска видео на YouTube по заданному тексту.
 /// </summary>
-public class VideoSearchService(HttpClient httpClient)
+public partial class VideoSearchService(HttpClient httpClient)
 {
     private const string DefaultVideoUrl = "https://youtu.be/dQw4w9WgXcQ";
     private const string YouTubeSearchUrl = "https://www.youtube.com/results?search_query=";
-    private const string VideoIdKey = "videoId";
     private const int MaxCacheSize = 100;
+    private const int MaxLoadVideos = 3;
     protected readonly Random Random = new();
     private readonly HashSet<string> _sentVideos = new();
 
@@ -28,7 +29,7 @@ public class VideoSearchService(HttpClient httpClient)
 
             var reply = await FetchSearchResultsAsync(url).ConfigureAwait(false);
 
-            var videoIds = ExtractValidVideoIds(reply);
+            var videoIds = ExtractVideoIds(reply);
             if (videoIds.Count == 0) return DefaultVideoUrl;
 
             var videoId = GetUniqueVideoId(videoIds);
@@ -70,20 +71,6 @@ public class VideoSearchService(HttpClient httpClient)
     }
 
     /// <summary>
-    ///     Извлекает и возвращает список корректных идентификаторов видео из HTML-кода страницы поиска.
-    /// </summary>
-    /// <param name="html">HTML-код страницы поиска.</param>
-    /// <returns>Список допустимых идентификаторов видео.</returns>
-    private static List<string> ExtractValidVideoIds(string html)
-    {
-        var videoIds = ExtractVideoIds(html)
-            .Where(id => id.All(char.IsLetterOrDigit))
-            .ToList();
-
-        return videoIds;
-    }
-
-    /// <summary>
     ///     Извлекает уникальные идентификаторы видео из HTML-кода страницы поиска YouTube.
     /// </summary>
     /// <param name="html">HTML-код страницы поиска.</param>
@@ -91,27 +78,20 @@ public class VideoSearchService(HttpClient httpClient)
     private static List<string> ExtractVideoIds(string html)
     {
         var videoIds = new HashSet<string>();
-        var index = 0;
 
-        // Цикл для поиска всех видеоидентификаторов на странице
-        while (index < html.Length && videoIds.Count < 3)
+        // Поиск всех совпадений
+        var matches = VideoRegex().Matches(html);
+
+        foreach (Match match in matches)
         {
-            index = html.IndexOf(VideoIdKey, index, StringComparison.Ordinal);
-            if (index == -1) break;
-            index += VideoIdKey.Length + 1;
-            var startIndex = html.IndexOf('\"', index);
-            if (startIndex == -1) break;
-            startIndex += 1;
-            var endIndex = html.IndexOf('\"', startIndex);
-            if (endIndex == -1) break;
-
-            var videoId = html[startIndex..endIndex];
+            var videoId = match.Groups[1].Value;
             videoIds.Add(videoId);
 
-            index = endIndex;
+            // Ограничение на количество найденных видео
+            if (videoIds.Count >= MaxLoadVideos) break;
         }
 
-        return new List<string>(videoIds);
+        return videoIds.ToList();
     }
 
     /// <summary>
@@ -163,4 +143,7 @@ public class VideoSearchService(HttpClient httpClient)
     {
         return text.Trim().Replace(" ", "+");
     }
+
+    [GeneratedRegex("\"videoId\":\"([a-zA-Z0-9_-]{11})\"")]
+    private static partial Regex VideoRegex();
 }
