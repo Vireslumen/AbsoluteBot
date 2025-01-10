@@ -245,6 +245,8 @@ public static class ServiceCollectionExtensions
             .AddSingleton<ExchangeRateService>()
             .AddSingleton<IAsyncInitializable>(sp => sp.GetRequiredService<ExchangeRateService>())
             .AddSingleton<MailRuAnswerService>()
+            .AddSingleton<ClipsService>()
+            .AddSingleton<IAsyncInitializable>(sp => sp.GetRequiredService<ClipsService>())
             .AddSingleton<WisdomService>()
             .AddSingleton<IAsyncInitializable>(sp => sp.GetRequiredService<WisdomService>());
     }
@@ -306,6 +308,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IChatCommand, CommandsListCommand>()
             .AddSingleton<IChatCommand, DefinitionCommand>()
             .AddSingleton<IChatCommand, ExecuteExtraCommand>()
+            .AddSingleton<IChatCommand, AlmightyCommand>()
             .AddSingleton<IChatCommand, FactCommand>()
             .AddSingleton<IChatCommand, GameInfoCommand>()
             .AddSingleton<IChatCommand, GameProgressCommand>()

@@ -7,18 +7,19 @@ using Serilog;
 namespace AbsoluteBot.Services.ChatServices.TwitchChat;
 
 /// <summary>
-///     Обрабатывает сообщения Twitch, выполняя различные действия по обработке.
+/// Обрабатывает сообщения Twitch, выполняя различные действия по обработке.
 /// </summary>
 public class TwitchMessageHandler(MessageProcessingService messageProcessingService, ICensorshipService censorshipService,
     ConfigService configService,
-    BirthdayService birthdayService) : BirthdayBaseMessageHandler(configService, birthdayService)
+    BirthdayService birthdayService, VkPlayChatService vkPlayChatService, RoleService roleService) : BirthdayBaseMessageHandler(configService,
+    birthdayService, roleService)
 {
     private const double RandomMessageProbability = 0.0015;
     private readonly ConfigService _twitchConfigService = configService;
     private string? _defaultEmoteName;
 
     /// <summary>
-    ///     Обрабатывает сообщение, применяя цензуру, упоминания и отправку сообщений и прочее.
+    /// Обрабатывает сообщение, применяя цензуру, упоминания и отправку сообщений и прочее.
     /// </summary>
     /// <param name="message">Текст сообщения для обработки.</param>
     /// <param name="context">Контекст чата, содержащий информацию о текущем чате.</param>
@@ -26,21 +27,25 @@ public class TwitchMessageHandler(MessageProcessingService messageProcessingServ
     public async Task<string> HandleMessageAsync(string message, ChatContext context)
     {
         await BirthdayHandle(context, context.Username).ConfigureAwait(false);
-        HandleMention(ref message, context);
-        SaveLastMessage(context.Username, message);
+        var handledMessage = await HandleMention(message, context);
+        if (handledMessage == null) return message;
+        SaveLastMessage(context.Username, handledMessage);
         await RandomHandleMessage(context).ConfigureAwait(false);
         // Обрабатывается сообщение через MessageProcessingService (исправление раскладки, перевод)
-        var processedMessage = await messageProcessingService.ProcessMessageAsync(context.Username, message).ConfigureAwait(false);
+        var processedMessage = await messageProcessingService.ProcessMessageAsync(context.Username, handledMessage).ConfigureAwait(false);
         if (processedMessage != null)
         {
             // Применение цензуры
-            processedMessage = censorshipService.ApplyCensorship(processedMessage, VkPlayChatService.MaxMessageLength, true);
+            processedMessage = censorshipService.ApplyCensorship(processedMessage, TwitchChatService.MaxMessageLength, true);
             await context.ChatService.SendMessageAsync($"{context.Username}: {processedMessage}", context).ConfigureAwait(false);
         }
         else
         {
-            processedMessage = message;
+            processedMessage = handledMessage;
         }
+
+        if (context is TwitchChatContext twitchChatContext)
+            await vkPlayChatService.SendMessageToChannelAsync($"[Twitch] {twitchChatContext.DisplayedName}: {processedMessage}");
 
         return processedMessage;
     }
@@ -53,7 +58,7 @@ public class TwitchMessageHandler(MessageProcessingService messageProcessingServ
     }
 
     /// <summary>
-    ///     Проверяет, упоминается ли бот в тексте сообщения или в ответе на сообщение.
+    /// Проверяет, упоминается ли бот в тексте сообщения или в ответе на сообщение.
     /// </summary>
     /// <param name="text">Текст сообщения.</param>
     /// <param name="context">Контекст чата, содержащий данные о текущем сеансе чата.</param>
@@ -66,7 +71,7 @@ public class TwitchMessageHandler(MessageProcessingService messageProcessingServ
     }
 
     /// <summary>
-    ///     Случайным образом добавляет сообщение в чат с базовым эмоутом из настроек.
+    /// Случайным образом добавляет сообщение в чат с базовым эмоутом из настроек.
     /// </summary>
     /// <param name="context">Контекст чата, содержащий данные о текущем сеансе чата.</param>
     private async Task RandomHandleMessage(ChatContext context)

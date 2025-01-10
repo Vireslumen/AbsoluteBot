@@ -51,7 +51,7 @@ public class WhoMbtiCommand(MbtiService mbtiService, ConfigService configService
         if (string.IsNullOrWhiteSpace(targetGame)) return "Не удалось найти игру.";
 
         // Проверка MBTI пользователя
-        if (string.IsNullOrWhiteSpace(userMbti)) return "Ваш MBTI не найден. Пожалуйста, сначала установите его с помощью команды !mbti *MBTI*.";
+        if (string.IsNullOrWhiteSpace(userMbti)) return "Ваш MBTI не найден. Пожалуйста, сначала установите его с помощью команды !mbti *MBTI*. Пройти тест можно здесь: https://www.16personalities.com/ru/test-lichnosti";
 
         // Поиск персонажа по mbti
         var character = await mbtiService.GetCharacterByMbtiAsync(targetGame, userMbti).ConfigureAwait(false);

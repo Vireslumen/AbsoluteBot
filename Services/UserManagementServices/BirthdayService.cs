@@ -289,17 +289,34 @@ public class BirthdayService(ChatGptService chatGptService) : IAsyncInitializabl
     private List<UserBirthdayInfo> GetUpcomingBirthdaysForPlatform(string platform, DateTime today)
     {
         var todayDate = today.Date;
-        return _userBirthdayInfos
+
+        // Поиск дней рождения на текущий год
+        var upcomingBirthdays = _userBirthdayInfos
             .Where(u => u.NotifyOnPlatforms.TryGetValue(platform, out var notify) && notify)
             .Select(u => new
             {
                 User = u,
                 NextBirthday = u.DateOfBirth.AddYears(todayDate.Year - u.DateOfBirth.Year)
             })
-            .Where(u => u.NextBirthday >= todayDate)
+            .Where(u => u.NextBirthday >= todayDate) // Только дни рождения после текущей даты
             .OrderBy(u => u.NextBirthday)
-            .Select(u => u.User)
             .ToList();
+
+        // Если на текущий год нет дней рождения, искать на следующий год
+        if (!upcomingBirthdays.Any())
+        {
+            upcomingBirthdays = _userBirthdayInfos
+                .Where(u => u.NotifyOnPlatforms.TryGetValue(platform, out var notify) && notify)
+                .Select(u => new
+                {
+                    User = u,
+                    NextBirthday = u.DateOfBirth.AddYears(todayDate.Year - u.DateOfBirth.Year + 1) // Перенос на следующий год
+                })
+                .OrderBy(u => u.NextBirthday)
+                .ToList();
+        }
+
+        return upcomingBirthdays.Select(u => u.User).ToList();
     }
 
     /// <summary>

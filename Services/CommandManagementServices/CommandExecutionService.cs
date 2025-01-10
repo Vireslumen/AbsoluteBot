@@ -78,6 +78,12 @@ public class CommandExecutionService(ICommandParser commandParser, ICommandRegis
         if (command != null && command.CanExecute(parsedCommand))
             return await ExecuteCommandAsync(command, parsedCommand, context).ConfigureAwait(false);
 
+        // Если команда не найдена, проверка на наличие всемогущих команд
+        command = commandRegistry.FindCommandByType<AlmightyCommand>();
+        if (command != null && command.CanExecute(parsedCommand) && parsedCommand.Command.Length > 1)
+        {
+            return await ExecuteCommandAsync(command, parsedCommand, context).ConfigureAwait(false);
+        }
         return null;
     }
 

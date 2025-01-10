@@ -36,6 +36,6 @@ public class MbtiCommand(MbtiService mbtiService) : BaseCommand, IParameterized
             return "Не удалось привязать MBTI к пользователю.";
         }
 
-        return $"Неправильный формат команды. Используйте: {Name} 4 буквы MBTI или {Name} никнейм";
+        return $"Неправильный формат команды. Используйте: {Name} 4 буквы MBTI или {Name} никнейм. Пройти тест можно здесь: https://www.16personalities.com/ru/test-lichnosti";
     }
 }

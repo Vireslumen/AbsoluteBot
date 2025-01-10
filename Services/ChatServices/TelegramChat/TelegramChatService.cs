@@ -5,6 +5,7 @@ using AbsoluteBot.Services.ChatServices.Interfaces;
 using AbsoluteBot.Services.UtilityServices;
 using Serilog;
 using Telegram.Bot;
+using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 
@@ -14,7 +15,8 @@ namespace AbsoluteBot.Services.ChatServices.TelegramChat;
 ///     Сервис для работы с Telegram, реализующий интерфейсы для отправки сообщений, документов, фотографий и управления
 ///     сообщениями.
 /// </summary>
-public class TelegramChatService(ConfigService configService, TelegramMessageDataProcessor messageDataProcessor, TelegramMessageHandler messageHandler,
+public class TelegramChatService(ConfigService configService, TelegramMessageDataProcessor messageDataProcessor,
+        TelegramMessageHandler messageHandler,
         TelegramImageProcessor imageProcessor)
     : IChatService, IMessagePreparationService, IDisposable, ISupportsMessageDeletion,
         IMarkdownMessageService, IDocumentSendingService, IPhotoSendingService, IStickerSendingService, IAsyncInitializable, IChatImageService
@@ -24,6 +26,7 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
     private const int MessageTimestampOffsetHours = 3;
     private bool _isConfigured;
     private bool _isDisposed;
+    private CancellationTokenSource? _cts;
     private DateTime _dateTelegramConnect;
     private string? _token;
     private TelegramBotClient? _botClient;
@@ -79,19 +82,24 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
         {
             if (_token == null) return Task.CompletedTask;
 
+            // Сохраняем текущую дату подключения для проверки новых сообщений
             _dateTelegramConnect = DateTime.Now;
-            using (var cts = new CancellationTokenSource())
-            {
-                var cancellationToken = cts.Token;
 
-                // Начало приема сообщений
-                botClient.StartReceiving(HandleBotUpdate, HandleBotError, cancellationToken: cancellationToken);
-                Log.ForContext("ConnectionEvent", true).Information("Соединение с Telegram установлено.");
-            }
+            // Отменяем и освобождаем существующий `CancellationTokenSource`, если он есть
+            _cts?.Cancel();
+            _cts?.Dispose();
+
+            // Создаем новый `CancellationTokenSource` для нового цикла получения сообщений
+            _cts = new CancellationTokenSource();
+
+            // Начинаем получать сообщения с новым токеном
+            botClient.StartReceiving(HandleBotUpdate, HandleBotError, cancellationToken: _cts.Token);
+            Log.ForContext("ConnectionEvent", true).Information("Соединение с Telegram установлено.");
 
             return Task.CompletedTask;
         });
     }
+
 
     /// <summary>
     ///     Отправляет сообщение в чат Telegram.
@@ -104,8 +112,12 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
         return ExecuteIfServiceIsReady(async botClient =>
         {
             if (context is not TelegramChatContext telegramContext) return;
-            await botClient.SendTextMessageAsync(telegramContext.ChannelId, message,
-                replyToMessageId: telegramContext.MessageId).ConfigureAwait(false);
+            var replyParameters = new ReplyParameters
+            {
+                MessageId = telegramContext.MessageId
+            };
+            await botClient.SendMessage(telegramContext.ChannelId, message,
+                replyParameters: replyParameters).ConfigureAwait(false);
         });
     }
 
@@ -132,8 +144,12 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
         {
             if (context is not TelegramChatContext telegramContext) return;
             var file = new InputFileUrl(url);
-            await botClient.SendDocumentAsync(telegramContext.ChannelId, file,
-                replyToMessageId: telegramContext.MessageId).ConfigureAwait(false);
+            var replyParameters = new ReplyParameters
+            {
+                MessageId = telegramContext.MessageId
+            };
+            await botClient.SendDocument(telegramContext.ChannelId, file,
+                replyParameters: replyParameters).ConfigureAwait(false);
         });
     }
 
@@ -148,8 +164,12 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
         return ExecuteIfServiceIsReady(async botClient =>
         {
             if (context is not TelegramChatContext telegramContext) return;
-            await botClient.SendTextMessageAsync(telegramContext.ChannelId, message,
-                replyToMessageId: telegramContext.MessageId, parseMode: ParseMode.Markdown).ConfigureAwait(false);
+            var replyParameters = new ReplyParameters
+            {
+                MessageId = telegramContext.MessageId
+            };
+            await botClient.SendMessage(telegramContext.ChannelId, message,
+                replyParameters: replyParameters, parseMode: ParseMode.Markdown).ConfigureAwait(false);
         });
     }
 
@@ -163,7 +183,7 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
         return ExecuteIfServiceIsReady(async botClient =>
         {
             if (context is not TelegramChatContext telegramContext) return;
-            await botClient.SendChatActionAsync(telegramContext.ChannelId, ChatAction.Typing).ConfigureAwait(false);
+            await botClient.SendChatAction(telegramContext.ChannelId, ChatAction.Typing).ConfigureAwait(false);
         });
     }
 
@@ -179,8 +199,12 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
         {
             if (context is not TelegramChatContext telegramContext) return;
             var file = new InputFileUrl(url);
-            await botClient.SendPhotoAsync(telegramContext.ChannelId, file,
-                replyToMessageId: telegramContext.MessageId).ConfigureAwait(false);
+            var replyParameters = new ReplyParameters
+            {
+                MessageId = telegramContext.MessageId
+            };
+            await botClient.SendPhoto(telegramContext.ChannelId, file,
+                replyParameters: replyParameters).ConfigureAwait(false);
         });
     }
 
@@ -196,7 +220,7 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
         {
             if (context is not TelegramChatContext telegramContext) return;
             var stickerInput = new InputFileId(sticker);
-            await botClient.SendStickerAsync(telegramContext.ChannelId, stickerInput).ConfigureAwait(false);
+            await botClient.SendSticker(telegramContext.ChannelId, stickerInput).ConfigureAwait(false);
         });
     }
 
@@ -227,7 +251,7 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
         return ExecuteIfServiceIsReady(async botClient =>
         {
             var channelId = Convert.ToInt64(channel);
-            await botClient.SendTextMessageAsync(channelId, message).ConfigureAwait(false);
+            await botClient.SendMessage(channelId, message).ConfigureAwait(false);
         });
     }
 
@@ -243,7 +267,7 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
         {
             var file = new InputFileUrl(url);
             var channelId = Convert.ToInt64(channel);
-            await botClient.SendPhotoAsync(channelId, file).ConfigureAwait(false);
+            await botClient.SendPhoto(channelId, file).ConfigureAwait(false);
         });
     }
 
@@ -258,8 +282,8 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
         return ExecuteIfServiceIsReady(async botClient =>
         {
             var channelId = Convert.ToInt64(channel);
-            var sentMessage = await botClient.SendTextMessageAsync(channelId, message).ConfigureAwait(false);
-            await botClient.PinChatMessageAsync(channelId, sentMessage.MessageId).ConfigureAwait(false);
+            var sentMessage = await botClient.SendMessage(channelId, message).ConfigureAwait(false);
+            await botClient.PinChatMessage(channelId, sentMessage.MessageId).ConfigureAwait(false);
         });
     }
 
@@ -273,7 +297,7 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
         return ExecuteIfServiceIsReady(async botClient =>
         {
             var channelId = Convert.ToInt64(channel);
-            await botClient.UnpinChatMessageAsync(channelId).ConfigureAwait(false);
+            await botClient.UnpinChatMessage(channelId).ConfigureAwait(false);
         });
     }
 
@@ -318,12 +342,32 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
     private async Task HandleBotError(ITelegramBotClient client, Exception exception, CancellationToken token)
     {
         Log.ForContext("ConnectionEvent", true).Error(exception, "Произошла ошибка в Telegram боте.");
+
+        if (exception is ApiRequestException apiException)
+        {
+            // Если ошибка связана с конфликтом получения обновлений
+            if (apiException.Message.Contains("terminated by other getUpdates request"))
+            {
+                Log.Error("Ошибка конфликта: возможно, запущено несколько экземпляров бота. Переподключение остановлено.");
+                return;
+            }
+        }
+
         if (_botClient != null)
         {
-            await Task.Delay(ReconnectDelayMilliseconds, token).ConfigureAwait(false);
+            // Отмена текущего цикла получения сообщений
+            _cts?.Cancel();
+            _cts?.Dispose();
+
+            // Ожидание перед повторной попыткой переподключения
+            await Task.Delay(ReconnectDelayMilliseconds).ConfigureAwait(false);
+
+            // Переподключение: начало нового цикла получения сообщений
             await Connect().ConfigureAwait(false);
         }
     }
+
+
 
     /// <summary>
     ///     Обрабатывает обновления, поступающие от Telegram, включая новые и отредактированные сообщения.

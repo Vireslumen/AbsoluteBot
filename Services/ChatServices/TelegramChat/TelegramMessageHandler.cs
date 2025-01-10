@@ -1,5 +1,6 @@
 ﻿using AbsoluteBot.Chat.Context;
 using AbsoluteBot.Services.ChatServices.Interfaces;
+using AbsoluteBot.Services.UserManagementServices;
 using AbsoluteBot.Services.UtilityServices;
 using Serilog;
 
@@ -9,10 +10,10 @@ namespace AbsoluteBot.Services.ChatServices.TelegramChat;
 ///     Класс, отвечающий за обработку сообщений Telegram, включая обработку упоминаний бота,
 ///     отправку сообщений и работу с реакциями.
 /// </summary>
-public class TelegramMessageHandler(MessageProcessingService messageProcessingService, ConfigService configService)
-    : BaseMessageHandler(configService)
+public class TelegramMessageHandler(MessageProcessingService messageProcessingService, ConfigService configService, RoleService roleService)
+    : BaseMessageHandler(configService, roleService)
 {
-    private const double DefaultRandomMentionProbability = 0.008;
+    private const double DefaultRandomMentionProbability = 0.01;
     private const int WinterStartMonth = 12;
     private const int WinterEndMonth = 2;
     private const double RandomReactionProbability = 0.01;
@@ -29,18 +30,19 @@ public class TelegramMessageHandler(MessageProcessingService messageProcessingSe
     /// <returns>Обработанное сообщение.</returns>
     public async Task<string> HandleMessageAsync(string message, ChatContext context, bool edited)
     {
-        HandleMention(ref message, context, DefaultRandomMentionProbability);
+        var handledMessage = await HandleMention(message, context);
+        if (handledMessage == null) return message;
         await RandomHandleMessage(context).ConfigureAwait(false);
 
         if (!edited)
-            SaveLastMessage(context.Username, message);
+            SaveLastMessage(context.Username, handledMessage);
 
         // Обрабатывается сообщение через MessageProcessingService (исправление раскладки, перевод)
-        var processedMessage = await messageProcessingService.ProcessMessageAsync(context.Username, message).ConfigureAwait(false);
+        var processedMessage = await messageProcessingService.ProcessMessageAsync(context.Username, handledMessage).ConfigureAwait(false);
         if (!string.IsNullOrEmpty(processedMessage))
             await context.ChatService.SendMessageAsync($"{context.Username}: {processedMessage}", context).ConfigureAwait(false);
         else
-            processedMessage = message;
+            processedMessage = handledMessage;
 
         return processedMessage;
     }

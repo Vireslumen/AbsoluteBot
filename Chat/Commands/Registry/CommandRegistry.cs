@@ -1,4 +1,6 @@
-﻿namespace AbsoluteBot.Chat.Commands.Registry;
+﻿using FuzzySharp;
+
+namespace AbsoluteBot.Chat.Commands.Registry;
 
 #pragma warning disable IDE0028
 
@@ -20,8 +22,26 @@ public class CommandRegistry : ICommandRegistry
     /// <returns>Объект <see cref="IChatCommand" />, если команда найдена; иначе <c>null</c>.</returns>
     public IChatCommand? FindCommand(string commandName)
     {
-        _commands.TryGetValue(commandName.ToLowerInvariant(), out var command);
-        return command;
+        commandName = commandName.ToLowerInvariant();
+
+        // Попытка найти точное совпадение
+        if (_commands.TryGetValue(commandName, out var command))
+        {
+            return command;
+        }
+
+        // Использование FuzzySharp для поиска наиболее близкой команды
+        var closestMatch = _commands.Keys
+            .OrderByDescending(key => Fuzz.Ratio(key, commandName))
+            .FirstOrDefault(key => Fuzz.Ratio(key, commandName) >= 70); // Порог точности 70%
+
+        if (closestMatch != null)
+        {
+            _commands.TryGetValue(closestMatch, out var similarCommand);
+            return similarCommand;
+        }
+
+        return null;
     }
 
     /// <summary>

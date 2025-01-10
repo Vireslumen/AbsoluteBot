@@ -1,4 +1,7 @@
-﻿using AbsoluteBot.Chat.Context;
+﻿using AbsoluteBot.Chat.Commands;
+using AbsoluteBot.Chat.Commands.Registry;
+using AbsoluteBot.Chat.Context;
+using AbsoluteBot.Models;
 using AbsoluteBot.Services.ChatServices.Discord;
 using AbsoluteBot.Services.ChatServices.TelegramChat;
 using AbsoluteBot.Services.ChatServices.TwitchChat;
@@ -15,14 +18,17 @@ namespace AbsoluteBot.Services.ScheduledTasks;
 ///     Сервис для мониторинга стримов на Twitch и обновления информации о стриме.
 /// </summary>
 public class TwitchStreamMonitoringService(TwitchChatService twitchChatService, ConfigService configService,
-    TelegramChatService telegramChatService, DiscordChatService discordChatService, ChatGeminiService geminiService, TelegramChannelManager telegramChannelManager,
+    TelegramChatService telegramChatService, DiscordChatService discordChatService, ChatGeminiService geminiService,
+    TelegramChannelManager telegramChannelManager,
     GameGoogleSheetsService gameGoogleSheetsService, StreamGoogleSheetsService streamGoogleSheetsService,
-    GameProgressService gameProgressService, VkPlayChatService vkPlayChatService) : IAsyncInitializable
+    GameProgressService gameProgressService, VkPlayChatService vkPlayChatService, ICommandRegistry commandRegistry) : IAsyncInitializable
 {
-    private const int VkPlayReminderIntervalHours = 2;
+    private const int VkPlayAllCommandsReminderIntervalHours = 3;
+    private const int VkPlayRandomCommandReminderIntervalMinutes = 42;
     private const string VkPlayReminderMessage = "Напиши !команды, чтобы узнать что я могу, или тегни меня, чтобы поболтать.";
     private bool _streamWasOnline;
-    private CancellationTokenSource? _vkPlayReminderCancellationTokenSource;
+    private CancellationTokenSource? _vkPlayAllCommandsReminderCancellationTokenSource;
+    private CancellationTokenSource? _vkPlayRandomCommandReminderCancellationTokenSource;
     private List<string>? _streamLinks = new();
     private string? _lastGameName;
 
@@ -33,6 +39,11 @@ public class TwitchStreamMonitoringService(TwitchChatService twitchChatService, 
         _lastGameName = await configService.GetConfigValueAsync<string>("LastGameName").ConfigureAwait(false);
         if (string.IsNullOrEmpty(_lastGameName) || _streamLinks == null || _streamLinks.Count < 1)
             Log.Warning("Не удалось загрузить последнюю игру на стриме или ссылки на стрим.");
+        if (_streamWasOnline)
+        {
+            _ = StartVkPlayAllCommandsReminderAsync().ConfigureAwait(false);
+            _ = StartVkPlayRandomCommandReminderAsync().ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -99,8 +110,9 @@ public class TwitchStreamMonitoringService(TwitchChatService twitchChatService, 
         streamNumber++;
         await configService.SetConfigValueAsync("StreamNumber", streamNumber).ConfigureAwait(false);
 
-        // Запуск асинхронной задачи для отправки напоминаний каждые 2 часа
-        _ = StartVkPlayReminderAsync().ConfigureAwait(false);
+        // Запуск асинхронных задач для отправки информации о доступных командах
+        _ = StartVkPlayAllCommandsReminderAsync().ConfigureAwait(false);
+        _ = StartVkPlayRandomCommandReminderAsync().ConfigureAwait(false);
 
         // Уведомление о начале стрима в Telegram и Discord
         if (_streamLinks != null)
@@ -137,19 +149,55 @@ public class TwitchStreamMonitoringService(TwitchChatService twitchChatService, 
     /// <summary>
     ///     Запускает повторяющееся отправление напоминаний в чат VkPlay с интервалом в 2 часа.
     /// </summary>
-    private async Task StartVkPlayReminderAsync()
+    private async Task StartVkPlayAllCommandsReminderAsync()
     {
-        _vkPlayReminderCancellationTokenSource = new CancellationTokenSource();
+        _vkPlayAllCommandsReminderCancellationTokenSource = new CancellationTokenSource();
 
         try
         {
             // Пока стрим активен, отправляем сообщение каждые 2 часа
-            while (!_vkPlayReminderCancellationTokenSource.Token.IsCancellationRequested)
+            while (!_vkPlayAllCommandsReminderCancellationTokenSource.Token.IsCancellationRequested)
             {
-                await vkPlayChatService.SendMessageToChannelAsync(VkPlayReminderMessage).ConfigureAwait(false);
-
                 // Ожидание 2 часа или отмены через CancellationToken
-                await Task.Delay(TimeSpan.FromHours(VkPlayReminderIntervalHours), _vkPlayReminderCancellationTokenSource.Token).ConfigureAwait(false);
+                await Task.Delay(TimeSpan.FromHours(VkPlayAllCommandsReminderIntervalHours), _vkPlayAllCommandsReminderCancellationTokenSource.Token)
+                    .ConfigureAwait(false);
+                await vkPlayChatService.SendMessageToChannelAsync(VkPlayReminderMessage).ConfigureAwait(false);
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            Log.Information("Отправка сообщений на VkPlay была отменена.");
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Ошибка при отправке напоминания на VkPlay.");
+        }
+    }
+
+    /// <summary>
+    ///     Запускает повторяющееся отправление напоминаний в чат VkPlay с интервалом в 40 минут.
+    /// </summary>
+    private async Task StartVkPlayRandomCommandReminderAsync()
+    {
+        _vkPlayRandomCommandReminderCancellationTokenSource = new CancellationTokenSource();
+        var allCommands = commandRegistry.GetAllCommands();
+        var rnd = new Random();
+        ChatContext chatContext = new VkPlayChatContext(string.Empty, 0, vkPlayChatService, null, null, new List<string>(), 0, new List<string>());
+        var baseCommand = new ParsedCommand(string.Empty, string.Empty, chatContext, UserRole.Default);
+        var randomSortedPublicCommands = allCommands.Where(c => c.CanExecute(baseCommand)).OrderBy(_ => rnd.Next()).ToList();
+        try
+        {
+            // Пока стрим активен, отправляем сообщение каждые 40 минут
+            foreach (var command in randomSortedPublicCommands)
+            {
+                if (_vkPlayRandomCommandReminderCancellationTokenSource.Token.IsCancellationRequested) continue;
+                var parameters = string.Empty;
+                if (command is IParameterized parameterizedCommand) parameters = parameterizedCommand.Parameters;
+                var message = $"А вы знали, что есть команда \"{command.Name} *{parameters}*\", которая {command.Description}";
+                // Ожидание 40 минут или отмены через CancellationToken
+                await Task.Delay(TimeSpan.FromMinutes(VkPlayRandomCommandReminderIntervalMinutes),
+                    _vkPlayRandomCommandReminderCancellationTokenSource.Token).ConfigureAwait(false);
+                await vkPlayChatService.SendMessageToChannelAsync(message).ConfigureAwait(false);
             }
         }
         catch (TaskCanceledException)
@@ -167,7 +215,8 @@ public class TwitchStreamMonitoringService(TwitchChatService twitchChatService, 
     /// </summary>
     private void StopVkPlayReminder()
     {
-        _vkPlayReminderCancellationTokenSource?.Cancel();
+        _vkPlayAllCommandsReminderCancellationTokenSource?.Cancel();
+        _vkPlayRandomCommandReminderCancellationTokenSource?.Cancel();
     }
 
     /// <summary>

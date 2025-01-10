@@ -8,7 +8,7 @@ namespace AbsoluteBot.Services.ChatServices.VkPlayLive;
 ///     Обрабатывает сообщения VkPlayLive, выполняя различные действия по обработке.
 /// </summary>
 public class VkPlayMessageHandler(MessageProcessingService messageProcessingService, ICensorshipService censorshipService, BirthdayService birthdayService,
-    ConfigService configService) : BirthdayBaseMessageHandler(configService, birthdayService)
+    ConfigService configService, RoleService roleService) : BirthdayBaseMessageHandler(configService, birthdayService, roleService)
 {
     /// <summary>
     ///     Обрабатывает сообщение, применяя цензуру, упоминания и отправку сообщений и прочее.
@@ -19,11 +19,12 @@ public class VkPlayMessageHandler(MessageProcessingService messageProcessingServ
     public async Task<string> HandleMessageAsync(string message, ChatContext context)
     {
         await BirthdayHandle(context, context.Username).ConfigureAwait(false);
-        HandleMention(ref message, context);
-        SaveLastMessage(context.Username, message);
+        var handledMessage = await HandleMention(message, context);
+        if (handledMessage == null) return message;
+        SaveLastMessage(context.Username, handledMessage);
 
         // Обрабатывается сообщение через MessageProcessingService (исправление раскладки, перевод)
-        var processedMessage = await messageProcessingService.ProcessMessageAsync(context.Username, message).ConfigureAwait(false);
+        var processedMessage = await messageProcessingService.ProcessMessageAsync(context.Username, handledMessage).ConfigureAwait(false);
         if (processedMessage != null)
         {
             // Применение цензуры
@@ -32,7 +33,7 @@ public class VkPlayMessageHandler(MessageProcessingService messageProcessingServ
         }
         else
         {
-            processedMessage = message;
+            processedMessage = handledMessage;
         }
 
         return processedMessage;

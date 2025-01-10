@@ -41,7 +41,7 @@ public class VkPlayChatService(ConfigService configService, ICensorshipService c
         try
         {
             var webSocketManager = new WebSocketConnectionManager();
-            _connectionManager = CreateConnectionManager(configService, webSocketManager);
+            _connectionManager = CreateConnectionManager(configService, webSocketManager, messageSender);
             if (!await _connectionManager.InitializeAsync().ConfigureAwait(false)) return;
             _messageReceiver = CreateMessageReceiver(webSocketManager, _connectionManager);
             _messageReceiver.OnMessageReceived += async (_, message) => await ProcessReceivedMessageAsync(message).ConfigureAwait(false);
@@ -128,9 +128,9 @@ public class VkPlayChatService(ConfigService configService, ICensorshipService c
     /// <param name="configService">Сервис для получения конфигурационных данных.</param>
     /// <param name="webSocketManager">Менеджер WebSocket-соединений.</param>
     /// <returns>Возвращает экземпляр <see cref="VkPlayConnectionManager" />.</returns>
-    private static VkPlayConnectionManager CreateConnectionManager(ConfigService configService, WebSocketConnectionManager webSocketManager)
+    private static VkPlayConnectionManager CreateConnectionManager(ConfigService configService, WebSocketConnectionManager webSocketManager, VkPlayMessageSender vkPlayMessageSender)
     {
-        return new VkPlayConnectionManager(webSocketManager, configService);
+        return new VkPlayConnectionManager(webSocketManager, configService, vkPlayMessageSender);
     }
 
     /// <summary>
@@ -161,6 +161,8 @@ public class VkPlayChatService(ConfigService configService, ICensorshipService c
             catch (Exception ex)
             {
                 Log.Error(ex, $"Ошибка в методе {methodName}.");
+                if (_connectionManager != null)
+                    await _connectionManager.ReconnectAsync().ConfigureAwait(false);
             }
     }
 

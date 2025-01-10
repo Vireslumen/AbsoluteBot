@@ -10,8 +10,8 @@ namespace AbsoluteBot.Services.ChatServices.Discord;
 ///// <summary>
 /////     Обрабатывает сообщения Discord, выполняя различные действия по обработке.
 ///// </summary>
-public class DiscordMessageHandler(MessageProcessingService messageProcessingService, ConfigService configService, BirthdayService birthdayService) :
-    BirthdayBaseMessageHandler(configService, birthdayService)
+public class DiscordMessageHandler(MessageProcessingService messageProcessingService, ConfigService configService, BirthdayService birthdayService, RoleService roleService) :
+    BirthdayBaseMessageHandler(configService, birthdayService, roleService)
 {
     private const double RandomReactionProbability = 0.015;
 
@@ -24,16 +24,17 @@ public class DiscordMessageHandler(MessageProcessingService messageProcessingSer
     public async Task<string> HandleMessageAsync(string message, DiscordChatContext context)
     {
         await BirthdayHandle(context, context.Username).ConfigureAwait(false);
-        HandleMention(ref message, context);
+        var handledMessage = await HandleMention(message, context);
+        if (handledMessage == null) return message;
         await RandomHandleMessageAsync(context).ConfigureAwait(false);
-        SaveLastMessage(context.Username, message);
+        SaveLastMessage(context.Username, handledMessage);
 
         // Обрабатывается сообщение через MessageProcessingService (исправление раскладки, перевод)
-        var processedMessage = await messageProcessingService.ProcessMessageAsync(context.Username, message).ConfigureAwait(false);
+        var processedMessage = await messageProcessingService.ProcessMessageAsync(context.Username, handledMessage).ConfigureAwait(false);
         if (processedMessage != null)
             await context.ChatService.SendMessageAsync($"{context.Username}: {processedMessage}", context).ConfigureAwait(false);
         else
-            processedMessage = message;
+            processedMessage = handledMessage;
 
         return processedMessage;
     }

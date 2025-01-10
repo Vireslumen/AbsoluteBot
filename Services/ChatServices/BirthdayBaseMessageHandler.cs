@@ -4,7 +4,7 @@ using AbsoluteBot.Services.UtilityServices;
 
 namespace AbsoluteBot.Services.ChatServices;
 
-public abstract class BirthdayBaseMessageHandler(ConfigService configService, BirthdayService birthdayService) : BaseMessageHandler(configService)
+public abstract class BirthdayBaseMessageHandler(ConfigService configService, BirthdayService birthdayService, RoleService roleService) : BaseMessageHandler(configService, roleService)
 {
     /// <summary>
     ///     Асинхронно отправляет поздравление с днем рождения, если сегодня день рождения пользователя.

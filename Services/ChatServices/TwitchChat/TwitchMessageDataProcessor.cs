@@ -64,7 +64,8 @@ public partial class TwitchMessageDataProcessor(ConfigService configService) : I
             chatMessage.Channel,
             chatMessage.Id,
             null,
-            replyInfo
+            replyInfo,
+            chatMessage.DisplayName
         );
     }
 

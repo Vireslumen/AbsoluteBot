@@ -37,6 +37,31 @@ public partial class ChatGeminiService(ConfigService configService, GeminiSettin
             Log.Warning("Не удалось загрузить общее имя бота для gemini.");
         await InitializePlatformChatHistories().ConfigureAwait(false);
     }
+    private readonly Dictionary<string, DateTime> _lastMessageTimes = new(); // Словарь для хранения времени последнего сообщения каждой платформы.
+
+    /// <summary>
+    ///     Проверка времени последнего сообщения для указанной платформы.
+    /// </summary>
+    /// <param name="platform">Название платформы.</param>
+    /// <returns>Задача для выполнения проверки.</returns>
+    private async Task CheckLastMessageTimeAsync(string platform)
+    {
+        if (_lastMessageTimes.TryGetValue(platform, out var lastMessageTime))
+        {
+            var timeSinceLastMessage = DateTime.UtcNow - lastMessageTime;
+
+            if (timeSinceLastMessage.TotalHours > 6)
+            {
+                var message = $"Прошло {Math.Floor(timeSinceLastMessage.TotalHours)} часов. Возможно прошлая тема беседы уже не актуальна и её не стоит вспоминать.";
+                await AddUserMessageToChatHistoryOnPlatform(message, "System", platform).ConfigureAwait(false);
+            }
+        }
+        else
+        {
+            // Если платформа еще не зарегистрирована, добавляем текущую метку времени.
+            _lastMessageTimes[platform] = DateTime.UtcNow;
+        }
+    }
 
     /// <summary>
     ///     Добавление сообщения пользователя в историю чата для всех платформ.
@@ -70,7 +95,9 @@ public partial class ChatGeminiService(ConfigService configService, GeminiSettin
     {
         try
         {
+            await CheckLastMessageTimeAsync(platform);
             await _platformChatHistories[platform].AddMessageAsync(UserGeminiName, $"{user}: {message}", platform).ConfigureAwait(false);
+            _lastMessageTimes[platform] = DateTime.UtcNow;
             return true;
         }
         catch (Exception ex)
@@ -212,7 +239,16 @@ public partial class ChatGeminiService(ConfigService configService, GeminiSettin
             {
                 ["temperature"] = temperature,
                 ["maxOutputTokens"] = MaxOutputTokens,
-                ["topP"] = TopP
+                ["topP"] = TopP,
+                ["presencePenalty"] = 1.9,
+                ["stopSequences"] = new JArray
+                {
+                    "Лучше",
+                    "Давай лучше",
+                    "Давай не будем",
+                    "Может, лучше",
+                    "Сменим тему"
+                }
             },
             ["safetySettings"] = new JArray
             {
@@ -412,7 +448,9 @@ public partial class ChatGeminiService(ConfigService configService, GeminiSettin
             var pattern = $@"^({Regex.Escape(_botName)}:\s*)+";
             message = Regex.Replace(message, pattern, "", RegexOptions.IgnoreCase).Trim();
         }
-
+        // Удаление описания действий
+        const string removeStars = @"\*.*?\*";
+        message = Regex.Replace(message, removeStars, "");
         // Удаление всех смайликов
         message = TextProcessingUtils.RemoveEmojis(message);
 

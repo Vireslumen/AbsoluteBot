@@ -37,6 +37,19 @@ public class GoogleSearchDefinitionService
             return null;
         }
     }
+    /// <summary>
+    ///     Извлекает определение из узла с атрибутом VisualDigestDescription, игнорируя классы.
+    /// </summary>
+    /// <param name="document">HTML-документ страницы.</param>
+    /// <returns>Возвращает текст определения из визуального описания.</returns>
+    private static string? ExtractDefinitionFromVisualDigest(HtmlDocument document)
+    {
+        // Поиск узла с атрибутом data-attrid="VisualDigestDescription"
+        var visualDigestNode = document.DocumentNode
+            .SelectSingleNode("//div[@data-attrid='VisualDigestDescription']//span");
+
+        return visualDigestNode?.InnerText.Trim();
+    }
 
     /// <summary>
     ///     Извлекает определение из описания на странице.
@@ -127,6 +140,7 @@ public class GoogleSearchDefinitionService
         var document = new HtmlDocument();
         document.LoadHtml(response);
         return ExtractDefinitionFromDescription(document) ?? ExtractDefinitionFromDictionary(document) ??
-            ExtractDefinitionFromHighlightedText(document) ?? null;
+            ExtractDefinitionFromHighlightedText(document) ??
+            ExtractDefinitionFromVisualDigest(document) ?? null;
     }
 }

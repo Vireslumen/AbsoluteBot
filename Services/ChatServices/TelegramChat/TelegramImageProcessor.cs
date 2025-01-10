@@ -70,7 +70,7 @@ public class TelegramImageProcessor(HttpClient httpClient) : BaseImageProcessor(
             var file = await botClient.GetFileAsync(fileId).ConfigureAwait(false);
             if (file.FilePath == null) return null;
             using var stream = new MemoryStream();
-            await botClient.DownloadFileAsync(file.FilePath, stream).ConfigureAwait(false);
+            await botClient.DownloadFile(file.FilePath, stream).ConfigureAwait(false);
             var fileBytes = stream.ToArray();
             return Convert.ToBase64String(fileBytes);
         }

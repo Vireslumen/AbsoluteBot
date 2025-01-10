@@ -9,11 +9,11 @@ using Serilog;
 namespace AbsoluteBot.Services;
 
 /// <summary>
-///     Сервис для получения информации о времени прохождения игр с сайта HowLongToBeat.
+/// Сервис для получения информации о времени прохождения игр с сайта HowLongToBeat.
 /// </summary>
 public partial class HowLongToBeatService
 {
-    private const string SearchUrlTemplate = "https://howlongtobeat.com/api/search/";
+    private const string SearchUrlTemplate = "https://howlongtobeat.com/api/find/";
     private const string BaseUrl = "https://howlongtobeat.com";
     private const string AcceptLanguageHeader = "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7";
     private const string AcceptHeader = "*/*";
@@ -33,7 +33,7 @@ public partial class HowLongToBeatService
     }
 
     /// <summary>
-    ///     Получает предполагаемое время прохождения игры.
+    /// Получает предполагаемое время прохождения игры.
     /// </summary>
     /// <param name="gameName">Название игры.</param>
     /// <returns>Время прохождения игры в минутах.</returns>
@@ -61,7 +61,7 @@ public partial class HowLongToBeatService
     }
 
     /// <summary>
-    ///     Создает запрос на основе названия игры.
+    /// Создает запрос на основе названия игры.
     /// </summary>
     /// <param name="gameName">Название игры.</param>
     /// <returns>Объект запроса для поиска игры.</returns>
@@ -82,17 +82,28 @@ public partial class HowLongToBeatService
                     sortCategory = "popular",
                     rangeCategory = "main",
                     rangeTime = new {min = (int?) null, max = (int?) null},
-                    gameplay = new {perspective = "", flow = "", genre = ""},
+                    gameplay = new {perspective = "", flow = "", genre = "", difficulty = ""},
                     rangeYear = new {min = "", max = ""},
                     modifier = ""
-                }
+                },
+                users = new
+                {
+                    sortCategory = "postcount"
+                },
+                lists = new
+                {
+                    sortCategory = "follows"
+                },
+                filter = "",
+                sort = 0,
+                randomizer = 0
             },
-            useCache = true
+            useCache = false
         };
     }
 
     /// <summary>
-    ///     Формирует URL для запроса с использованием поискового ключа.
+    /// Формирует URL для запроса с использованием поискового ключа.
     /// </summary>
     /// <param name="searchKey">Поисковый ключ.</param>
     /// <returns>URL для выполнения поиска игры.</returns>
@@ -102,7 +113,7 @@ public partial class HowLongToBeatService
     }
 
     /// <summary>
-    ///     Очищает название игры от неалфавитных символов.
+    /// Очищает название игры от неалфавитных символов.
     /// </summary>
     /// <param name="gameName">Название игры.</param>
     /// <returns>Очищенное название игры.</returns>
@@ -112,7 +123,7 @@ public partial class HowLongToBeatService
     }
 
     /// <summary>
-    ///     Извлекает продолжительность прохождения игры из данных поиска.
+    /// Извлекает продолжительность прохождения игры из данных поиска.
     /// </summary>
     /// <param name="gameData">Ответ от API с данными об игре.</param>
     /// <returns>Продолжительность прохождения в минутах.</returns>
@@ -132,7 +143,7 @@ public partial class HowLongToBeatService
     }
 
     /// <summary>
-    ///     Извлекает URL скрипта из HTML-контента.
+    /// Извлекает URL скрипта из HTML-контента.
     /// </summary>
     /// <param name="htmlContent">HTML-контент страницы.</param>
     /// <returns>URL скрипта или null, если не найдено.</returns>
@@ -150,7 +161,7 @@ public partial class HowLongToBeatService
     }
 
     /// <summary>
-    ///     Выполняет запрос к API HowLongToBeat для получения данных об игре.
+    /// Выполняет запрос к API HowLongToBeat для получения данных об игре.
     /// </summary>
     /// <param name="searchUrl">URL для поиска.</param>
     /// <param name="searchRequest">Запрос для поиска игры.</param>
@@ -166,20 +177,27 @@ public partial class HowLongToBeatService
     }
 
     /// <summary>
-    ///     Получает поисковый ключ из скрипта по указанному URL.
+    /// Получает поисковый ключ из скрипта по указанному URL.
     /// </summary>
     /// <param name="scriptUrl">URL скрипта.</param>
     /// <returns>Поисковый ключ или null, если не найдено.</returns>
     private async Task<string?> FetchKeyFromScriptAsync(string scriptUrl)
     {
         var scriptResponse = await _httpClient.GetStringAsync(scriptUrl).ConfigureAwait(false);
-        var match = SearchKeyRegex().Match(scriptResponse);
 
-        return match.Success ? match.Groups[1].Value : null;
+        var match = SearchKeyRegex().Match(scriptResponse);
+        if (match.Success) return match.Groups["key"].Value;
+
+        // Попытка найти ключ с использованием второго регулярного выражения
+        match = SearchKeyRegex2().Match(scriptResponse);
+        if (match.Success) return match.Groups["part1"].Value + match.Groups["part2"].Value;
+
+        // Возврат null, если ключ не найден
+        return null;
     }
 
     /// <summary>
-    ///     Получает поисковый ключ, необходимый для выполнения запросов к API HowLongToBeat.
+    /// Получает поисковый ключ, необходимый для выполнения запросов к API HowLongToBeat.
     /// </summary>
     /// <returns>Поисковый ключ.</returns>
     private async Task<string?> FetchSearchKeyAsync()
@@ -202,4 +220,7 @@ public partial class HowLongToBeatService
 
     [GeneratedRegex("\"/api/search/\"\\.concat\\(\"([a-zA-Z0-9]+)\"\\)", RegexOptions.Compiled)]
     private static partial Regex SearchKeyRegex();
+
+    [GeneratedRegex("\"/api/find/\"\\.concat\\(\"(?<part1>[a-zA-Z0-9]+)\"\\)\\.concat\\(\"(?<part2>[a-zA-Z0-9]+)\"\\)", RegexOptions.Compiled)]
+    private static partial Regex SearchKeyRegex2();
 }

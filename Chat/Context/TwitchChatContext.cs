@@ -15,7 +15,7 @@ namespace AbsoluteBot.Chat.Context;
 /// <param name="lastMessages">Список последних сообщений в чате (опционально).</param>
 /// <param name="replyInfo">Информация о сообщении, на которое дается ответ (опционально).</param>
 public class TwitchChatContext(string username, int maxMessageLength, IChatService chatService,
-        string channel, string messageId, List<string>? lastMessages, ReplyInfo? replyInfo)
+        string channel, string messageId, List<string>? lastMessages, ReplyInfo? replyInfo, string displayedName)
     : ChatContext("Twitch", username, maxMessageLength, chatService, lastMessages, replyInfo, new CommonTextFormatter())
 {
     /// <summary>
@@ -26,4 +26,8 @@ public class TwitchChatContext(string username, int maxMessageLength, IChatServi
     ///     Идентификатор полученного сообщения.
     /// </summary>
     public string MessageId { get; set; } = messageId;
+    /// <summary>
+    ///     Отображаемое имя пользователя
+    /// </summary>
+    public string DisplayedName { get; set; } = displayedName;
 }

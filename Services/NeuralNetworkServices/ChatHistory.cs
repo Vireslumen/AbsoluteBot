@@ -185,13 +185,42 @@ public class ChatHistory
 
     /// <summary>
     ///     Асинхронно загружает начальные сообщения для истории чата из файлов.
+    ///     Загружает сохранённую историю, если файл с сообщением пользователя изменялся более чем 3 часа назад.
     /// </summary>
     /// <param name="userMessageFilePath">Путь к файлу с сообщением пользователя.</param>
     /// <param name="modelMessageFilePath">Путь к файлу с сообщением модели.</param>
     /// <param name="platform">Платформа, на которой используется история чата.</param>
-    public async Task LoadInitialMessagesFromFileAsync(string userMessageFilePath, string modelMessageFilePath,
-        string platform)
+    public async Task LoadInitialMessagesFromFileAsync(string userMessageFilePath, string modelMessageFilePath, string platform)
     {
+        var fileInfo = new FileInfo(userMessageFilePath);
+        if (fileInfo.Exists && DateTime.Now - fileInfo.LastWriteTime > TimeSpan.FromHours(3))
+        {
+            // Если файл существует и был изменен более 3 часов назад, загружается сохранённая история
+            try
+            {
+                var savedHistoryPath = string.Format(FilePath, platform);
+                if (File.Exists(savedHistoryPath))
+                {
+                    var savedHistory = await File.ReadAllTextAsync(savedHistoryPath).ConfigureAwait(false);
+                    var loadedMessages = JsonConvert.DeserializeObject<JArray>(savedHistory);
+                    if (loadedMessages != null)
+                    {
+                        _messages.Clear();
+                        foreach (var message in loadedMessages)
+                        {
+                            _messages.Add(message);
+                        }
+                        return; // Завершение метода, так как история уже загружена
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Ошибка при загрузке сохранённой истории сообщений.");
+            }
+        }
+
+        // Если файл не существует или его изменения менее 3 часов назад, загружаются начальные сообщения
         if (!File.Exists(userMessageFilePath))
             await File.WriteAllTextAsync(userMessageFilePath,
                 "Описание работы нейросети... (добавьте сюда весь необходимый текст)").ConfigureAwait(false);
@@ -204,6 +233,7 @@ public class ChatHistory
 
         await AddInitialMessagesAsync(userMessage, modelMessage, platform).ConfigureAwait(false);
     }
+
 
     /// <summary>
     ///     Создает объект сообщения в формате JSON, который добавляется в историю сообщений.

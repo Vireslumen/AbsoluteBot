@@ -7,14 +7,17 @@ using Serilog;
 namespace AbsoluteBot.Services.UserManagementServices;
 
 /// <summary>
-///     Сервис для работы с MBTI типами пользователей и получения данных о персонажах по MBTI.
+/// Сервис для работы с MBTI типами пользователей и получения данных о персонажах по MBTI.
 /// </summary>
 public partial class MbtiService(HttpClient httpClient) : IAsyncInitializable
 {
     private const string FilePath = "mbti_data.json";
-    private const string UserAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36";
+
+    private const string UserAgentString =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36";
+
     private const string AcceptLanguageHeader = "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7";
-    private const string GoogleSearchUrlTemplate = "https://www.google.com/search?safe=active&q={0}+personality-database.com";
+    private const string GoogleSearchUrlTemplate = "https://www.google.com/search?safe=active&q={0}+personality-database.com+\"sub_cat_id\"";
     private const int DefaultMbtiNumber = 1;
     private const string PersonalityDatabaseUrl = "https://www.personality-database.com/";
 
@@ -64,7 +67,7 @@ public partial class MbtiService(HttpClient httpClient) : IAsyncInitializable
     }
 
     /// <summary>
-    ///     Получает персонажа, соответствующего указанному MBTI и игре.
+    /// Получает персонажа, соответствующего указанному MBTI и игре.
     /// </summary>
     /// <param name="game">Название игры.</param>
     /// <param name="mbti">Тип MBTI.</param>
@@ -84,7 +87,7 @@ public partial class MbtiService(HttpClient httpClient) : IAsyncInitializable
     }
 
     /// <summary>
-    ///     Возвращает MBTI пользователя по его имени.
+    /// Возвращает MBTI пользователя по его имени.
     /// </summary>
     /// <param name="username">Имя пользователя.</param>
     /// <returns>Тип MBTI, если найден.</returns>
@@ -102,7 +105,7 @@ public partial class MbtiService(HttpClient httpClient) : IAsyncInitializable
     }
 
     /// <summary>
-    ///     Проверяет, является ли переданный MBTI действительным типом.
+    /// Проверяет, является ли переданный MBTI действительным типом.
     /// </summary>
     /// <param name="mbti">Тип MBTI для проверки.</param>
     /// <returns><c>true</c>, если MBTI действителен, иначе <c>false</c>.</returns>
@@ -113,7 +116,7 @@ public partial class MbtiService(HttpClient httpClient) : IAsyncInitializable
     }
 
     /// <summary>
-    ///     Преобразует MBTI тип в числовое значение.
+    /// Преобразует MBTI тип в числовое значение.
     /// </summary>
     /// <param name="mbti">Тип MBTI.</param>
     /// <returns>Числовое значение, соответствующее типу MBTI.</returns>
@@ -124,7 +127,7 @@ public partial class MbtiService(HttpClient httpClient) : IAsyncInitializable
     }
 
     /// <summary>
-    ///     Устанавливает тип MBTI для пользователя и сохраняет данные.
+    /// Устанавливает тип MBTI для пользователя и сохраняет данные.
     /// </summary>
     /// <param name="username">Имя пользователя.</param>
     /// <param name="mbti">Тип MBTI.</param>
@@ -148,7 +151,7 @@ public partial class MbtiService(HttpClient httpClient) : IAsyncInitializable
     private static partial Regex DigitsRegex();
 
     /// <summary>
-    ///     Извлекается первая ссылка на сайт Personality Database из результатов поиска.
+    /// Извлекается первая ссылка на сайт Personality Database из результатов поиска.
     /// </summary>
     /// <param name="responseBody">Тело ответа с результатами поиска.</param>
     /// <param name="targetUrl">Целевая ссылка на сайт для поиска.</param>
@@ -164,7 +167,7 @@ public partial class MbtiService(HttpClient httpClient) : IAsyncInitializable
     }
 
     /// <summary>
-    ///     Выполняется запрос к API Personality Database для получения данных о персонаже.
+    /// Выполняется запрос к API Personality Database для получения данных о персонаже.
     /// </summary>
     /// <param name="apiRequestUrl">URL для запроса к API.</param>
     /// <returns>Информация о персонаже в виде строки или null, если персонаж не найден.</returns>
@@ -178,7 +181,11 @@ public partial class MbtiService(HttpClient httpClient) : IAsyncInitializable
         var apiResponseBody = await apiResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
         var startIdx = apiResponseBody.IndexOf(mbtiProfileString, StringComparison.Ordinal);
 
-        if (startIdx <= 0) return null;
+        if (startIdx <= 0)
+        {
+            Log.Warning("startIdx is null" + apiRequestUrl);
+            return null;
+        }
 
         var responseContent = apiResponseBody[(startIdx + mbtiProfileString.Length)..];
         var startIdx2 = responseContent.IndexOf('\"', StringComparison.Ordinal);
@@ -189,8 +196,8 @@ public partial class MbtiService(HttpClient httpClient) : IAsyncInitializable
     }
 
     /// <summary>
-    ///     Асинхронный метод для получения персонажа по MBTI из базы данных Personality Database.
-    ///     Поиск осуществляется через Google с последующей обработкой результата для получения данных.
+    /// Асинхронный метод для получения персонажа по MBTI из базы данных Personality Database.
+    /// Поиск осуществляется через Google с последующей обработкой результата для получения данных.
     /// </summary>
     /// <param name="game">Название игры для поиска персонажей.</param>
     /// <param name="mbti">Тип MBTI для персонажа.</param>
@@ -202,22 +209,34 @@ public partial class MbtiService(HttpClient httpClient) : IAsyncInitializable
 
         // Отправляется HTTP-запрос для получения страницы с поисковыми результатами
         var responseBody = await FetchGoogleSearchResultsAsync(url).ConfigureAwait(false);
-        if (responseBody == null) return null;
+        if (responseBody == null)
+        {
+            Log.Warning("responseBody is null");
+            return null;
+        }
 
         // Извлекается ссылка на сайт Personality Database
         var matchingLink = ExtractMatchingLink(responseBody, PersonalityDatabaseUrl);
-        if (matchingLink == null) return null;
+        if (matchingLink == null)
+        {
+            Log.Warning("matchingLink is null");
+            return null;
+        }
 
         // Генерация URL для API-запроса на основе извлеченной ссылки
         var apiRequestUrl = GenerateApiRequestUrl(matchingLink, mbti);
-        if (apiRequestUrl == null) return null;
+        if (apiRequestUrl == null)
+        {
+            Log.Warning("apiRequestUrl is null " + matchingLink);
+            return null;
+        }
 
         // Выполняется запрос к API для получения данных о персонаже
         return await FetchCharacterDataFromApiAsync(apiRequestUrl).ConfigureAwait(false);
     }
 
     /// <summary>
-    ///     Выполняется асинхронный HTTP-запрос к Google для получения результатов поиска.
+    /// Выполняется асинхронный HTTP-запрос к Google для получения результатов поиска.
     /// </summary>
     /// <param name="url">URL для запроса в Google.</param>
     /// <returns>Тело ответа в виде строки или null, если запрос не удался.</returns>
@@ -234,7 +253,7 @@ public partial class MbtiService(HttpClient httpClient) : IAsyncInitializable
     }
 
     /// <summary>
-    ///     Генерируется URL для запроса к API на основе извлеченной ссылки и MBTI.
+    /// Генерируется URL для запроса к API на основе извлеченной ссылки и MBTI.
     /// </summary>
     /// <param name="matchingLink">Ссылка на страницу с персонажем.</param>
     /// <param name="mbti">Тип MBTI для поиска.</param>
@@ -251,7 +270,7 @@ public partial class MbtiService(HttpClient httpClient) : IAsyncInitializable
     }
 
     /// <summary>
-    ///     Загружает данные Mbti из файла или создаёт.
+    /// Загружает данные Mbti из файла или создаёт.
     /// </summary>
     /// <returns></returns>
     private async Task LoadMbtiAsync()
@@ -281,7 +300,7 @@ public partial class MbtiService(HttpClient httpClient) : IAsyncInitializable
     }
 
     /// <summary>
-    ///     Сохраняет данные MBTI в файл.
+    /// Сохраняет данные MBTI в файл.
     /// </summary>
     private async Task SaveDataAsync()
     {
