@@ -62,7 +62,7 @@ public partial class ImageSearchService(HttpClient httpClient)
     {
         if (_usedImgUrls.Count >= MaxCacheSize)
             // Удаление старейшего элемента из кэша
-            _usedImgUrls.Remove(_usedImgUrls.First());
+            _usedImgUrls.Remove(_usedImgUrls.Last());
 
         _usedImgUrls.Add(url);
     }

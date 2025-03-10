@@ -15,8 +15,8 @@ public class ShowComplaintsCommand(ComplaintService complaintService) : BaseComm
 
     public override bool CanExecute(ParsedCommand command)
     {
-        // Использовать можно только в административных каналах
-        return CommandPermissionChecker.IsAdministrativeChannel(command);
+        // Использовать можно только в административных каналах или в премиумном телеграме
+        return CommandPermissionChecker.IsAdministrativeChannel(command) || ((command.Context as TelegramChatContext)!).ChannelType == ChannelType.Premium;
     }
 
     protected override Task<string> ExecuteLogicAsync(ParsedCommand command)

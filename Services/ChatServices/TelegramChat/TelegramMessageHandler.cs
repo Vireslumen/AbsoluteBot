@@ -30,7 +30,7 @@ public class TelegramMessageHandler(MessageProcessingService messageProcessingSe
     /// <returns>Обработанное сообщение.</returns>
     public async Task<string> HandleMessageAsync(string message, ChatContext context, bool edited)
     {
-        var handledMessage = await HandleMention(message, context);
+        var handledMessage = await HandleMention(message, context, RandomReactionProbability);
         if (handledMessage == null) return message;
         await RandomHandleMessage(context).ConfigureAwait(false);
 

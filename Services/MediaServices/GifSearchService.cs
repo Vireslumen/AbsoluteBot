@@ -66,7 +66,7 @@ public partial class GifSearchService
     {
         if (_usedGifUrls.Count >= MaxCacheSize)
             // Удаление старейшего элемента из кэша
-            _usedGifUrls.Remove(_usedGifUrls.First());
+            _usedGifUrls.Remove(_usedGifUrls.Last());
 
         _usedGifUrls.Add(url);
     }

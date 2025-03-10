@@ -76,7 +76,7 @@ public partial class FactService(HttpClient httpClient)
     {
         if (_usedFacts.Count >= MaxCacheSize)
             // Удаление старейшего элемента из кэша
-            _usedFacts.Remove(_usedFacts.First());
+            _usedFacts.Remove(_usedFacts.Last());
 
         _usedFacts.Add(url);
     }

@@ -55,7 +55,7 @@ public partial class VideoSearchService(HttpClient httpClient)
     {
         if (_sentVideos.Count >= MaxCacheSize)
             // Удаление старейшего элемента из кэша
-            _sentVideos.Remove(_sentVideos.First());
+            _sentVideos.Remove(_sentVideos.Last());
 
         _sentVideos.Add(url);
     }

@@ -13,11 +13,12 @@ namespace AbsoluteBot.Services.GoogleSearch;
 public class GoogleSearchService(HttpClient httpClient, ConfigService configService) : IGoogleSearchService, IAsyncInitializable
 {
     private const int DefaultLinkCount = 5;
-    private const string LanguageParameterValue = "lang_ru";
     private const string CxParameter = "cx";
-    private const string LanguageParameter = "lr";
     private const string QueryParameter = "q";
     private const string ApiKeyParameter = "key";
+    private const string SiteSearchFilterParameter = "siteSearchFilter";
+    private const string SiteSearchFilterValue = "i";
+    private const string SiteSearchParameter = "siteSearch";
     private string? _apiKey;
     private string? _cx;
 
@@ -33,12 +34,13 @@ public class GoogleSearchService(HttpClient httpClient, ConfigService configServ
     /// </summary>
     /// <param name="query">Запрос для поиска.</param>
     /// <param name="linkCount">Количество ссылок, которые должны быть возвращены.</param>
+    /// <param name="siteSearchValue">Сайт на котором надо искать</param>
     /// <returns>Список строк с URL-адресами найденных ресурсов или <c>null</c>, если ничего не найдено.</returns>
-    public async Task<List<string>?> PerformSearchAsync(string query, int linkCount = DefaultLinkCount)
+    public async Task<List<string>?> PerformSearchAsync(string query, int linkCount = DefaultLinkCount, string? siteSearchValue = null)
     {
         try
         {
-            var requestUri = BuildRequestUri(query);
+            var requestUri = BuildRequestUri(query, siteSearchValue);
             if (requestUri == null) return null;
             var response = await SendSearchRequestAsync(requestUri).ConfigureAwait(false);
             return response == null
@@ -56,20 +58,23 @@ public class GoogleSearchService(HttpClient httpClient, ConfigService configServ
     ///     Создает строку URI для выполнения поискового запроса в Google.
     /// </summary>
     /// <param name="query">Запрос, который будет выполнен в поисковой системе.</param>
+    /// <param name="siteSearchValue">Сайт на котором надо искать</param>
     /// <returns>Строка URI для использования в HTTP-запросе.</returns>
-    private string? BuildRequestUri(string query)
+    private string? BuildRequestUri(string query, string? siteSearchValue = null)
     {
         if (string.IsNullOrEmpty(_apiKey) || string.IsNullOrEmpty(_cx)) return null;
-        query = query.Replace(" ", "+");
 
         var queryStringParameters = new Dictionary<string, string>
         {
             {CxParameter, _cx},
-            {LanguageParameter, LanguageParameterValue},
             {QueryParameter, query},
             {ApiKeyParameter, _apiKey}
         };
-
+        if (siteSearchValue != null)
+        {
+            queryStringParameters.Add(SiteSearchFilterParameter, SiteSearchFilterValue);
+            queryStringParameters.Add(SiteSearchParameter, siteSearchValue);
+        }
         var queryString = string.Join("&",
             queryStringParameters.Select(p => $"{p.Key}={Uri.EscapeDataString(p.Value)}"));
         return $"https://customsearch.googleapis.com/customsearch/v1?{queryString}";

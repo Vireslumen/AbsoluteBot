@@ -72,7 +72,7 @@ public partial class MailRuAnswerService(HttpClient httpClient)
     {
         if (_oldAnswers.Count >= MaxCacheSize)
             // Удаление старейшего элемента из кэша
-            _oldAnswers.Remove(_oldAnswers.First());
+            _oldAnswers.Remove(_oldAnswers.Last());
 
         _oldAnswers.Add(answer);
     }

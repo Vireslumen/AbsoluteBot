@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using AbsoluteBot.Services.GoogleSearch;
 using HtmlAgilityPack;
 using Serilog;
 
@@ -9,7 +10,7 @@ namespace AbsoluteBot.Services.UserManagementServices;
 /// <summary>
 /// Сервис для работы с MBTI типами пользователей и получения данных о персонажах по MBTI.
 /// </summary>
-public partial class MbtiService(HttpClient httpClient) : IAsyncInitializable
+public partial class MbtiService(HttpClient httpClient, GoogleSearchService googleSearchService) : IAsyncInitializable
 {
     private const string FilePath = "mbti_data.json";
 
@@ -204,19 +205,16 @@ public partial class MbtiService(HttpClient httpClient) : IAsyncInitializable
     /// <returns>Строка с информацией о персонаже или null, если ничего не найдено.</returns>
     private async Task<string?> FetchCharacterFromApiAsync(string game, string mbti)
     {
-        // Генерация URL для поиска через Google
-        var url = string.Format(GoogleSearchUrlTemplate, game);
-
         // Отправляется HTTP-запрос для получения страницы с поисковыми результатами
-        var responseBody = await FetchGoogleSearchResultsAsync(url).ConfigureAwait(false);
-        if (responseBody == null)
+        var links = await googleSearchService.PerformSearchAsync(game + " " + "\"sub_cat_id\"", 10, "https://www.personality-database.com/");
+        if (links == null || links.Count < 1)
         {
-            Log.Warning("responseBody is null");
+            Log.Warning("links is empty");
             return null;
         }
-
+        File.WriteAllLines("mbtipath.txt",links);
+        var matchingLink = links.FirstOrDefault(link => link.Contains(PersonalityDatabaseUrl));
         // Извлекается ссылка на сайт Personality Database
-        var matchingLink = ExtractMatchingLink(responseBody, PersonalityDatabaseUrl);
         if (matchingLink == null)
         {
             Log.Warning("matchingLink is null");

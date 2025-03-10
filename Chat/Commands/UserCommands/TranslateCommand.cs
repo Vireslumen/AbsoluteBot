@@ -16,10 +16,24 @@ public partial class TranslateCommand(TranslationService translationService) : B
 
     protected override async Task<string> ExecuteLogicAsync(ParsedCommand command)
     {
-        var targetLanguage = CyrillicRegex().IsMatch(command.Parameters) ? "EN" : "RU";
+        var targetText = string.IsNullOrEmpty(command.Parameters) ? command.Context.Reply!.Message : command.Parameters;
+        var targetLanguage = CyrillicRegex().IsMatch(targetText) ? "EN" : "RU";
 
-        return await translationService.TranslateTextAsync(command.Parameters, targetLanguage).ConfigureAwait(false) ??
+        return await translationService.TranslateTextAsync(targetText, targetLanguage).ConfigureAwait(false) ??
                "Не могу понять, тут что-то на эльфийском.";
+    }
+
+    /// <summary>
+    ///     Метод проверки наличия параметров команды, если они необходимы.
+    /// </summary>
+    /// <param name="command">Команда</param>
+    /// <returns>True если параметры не нужны или присутствуют. False если необходимые параметры не найдены</returns>
+    protected override bool HasRequiredParameters(ref ParsedCommand command)
+    {
+        if (this is not IParameterized parameterizedCommand || !string.IsNullOrEmpty(command.Parameters) || !string.IsNullOrEmpty(command.Context.Reply?.Message)) return true;
+        command.Response = $"Использование: {Name} *{parameterizedCommand.Parameters}*";
+        command.Context.ChatService.SendMessageAsync(command.Response, command.Context);
+        return false;
     }
 
     [GeneratedRegex(@"\p{IsCyrillic}")]

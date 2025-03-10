@@ -53,7 +53,7 @@ public partial class ChatGeminiService(ConfigService configService, GeminiSettin
             if (timeSinceLastMessage.TotalHours > 6)
             {
                 var message = $"Прошло {Math.Floor(timeSinceLastMessage.TotalHours)} часов. Возможно прошлая тема беседы уже не актуальна и её не стоит вспоминать.";
-                await AddUserMessageToChatHistoryOnPlatform(message, "System", platform).ConfigureAwait(false);
+                await _platformChatHistories[platform].AddMessageAsync(UserGeminiName, $"System: {message}", platform).ConfigureAwait(false);
             }
         }
         else
@@ -127,6 +127,9 @@ public partial class ChatGeminiService(ConfigService configService, GeminiSettin
 
             // Обработка сообщения на которое ответил пользователь
             if (replyInfo != null) await HandleReplyAsync(replyInfo, chatHistory, platform).ConfigureAwait(false);
+            
+            // Уведомление о том, что прошло много времени с последней беседы
+            await CheckLastMessageTimeAsync(platform);
 
             // Обработка и добавление сообщения в историю
             userMessage = PreProcessMessage(userMessage);

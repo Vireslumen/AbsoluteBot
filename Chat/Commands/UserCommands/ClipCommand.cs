@@ -47,4 +47,9 @@ public class ClipCommand(TwitchChatService twitchChatService, AskGeminiService g
         var clip = clips.FirstOrDefault(c => c.Id == clipId);
         return clip != null ? clip.Url : "Не удалось найти клип...";
     }
+
+    protected override bool HasRequiredParameters(ref ParsedCommand command)
+    {
+        return true;
+    }
 }

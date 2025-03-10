@@ -11,7 +11,7 @@ namespace AbsoluteBot.Services.NeuralNetworkServices;
 public class GeminiSettingsProvider(ConfigService configService, HttpClient httpClient) : IAsyncInitializable
 {
     public const string BaseApiUrl = "https://generativelanguage.googleapis.com/v1beta/models";
-    public readonly string[] Models = {"gemini-1.5-pro-002", "gemini-1.5-flash-002" };
+    public readonly string[] Models = {"gemini-2.0-pro", "gemini-2.0-flash"};
     public List<string>? ApiKeys;
 
     public async Task InitializeAsync()

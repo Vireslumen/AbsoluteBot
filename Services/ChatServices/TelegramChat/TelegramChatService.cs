@@ -12,8 +12,8 @@ using Telegram.Bot.Types.Enums;
 namespace AbsoluteBot.Services.ChatServices.TelegramChat;
 
 /// <summary>
-///     Сервис для работы с Telegram, реализующий интерфейсы для отправки сообщений, документов, фотографий и управления
-///     сообщениями.
+/// Сервис для работы с Telegram, реализующий интерфейсы для отправки сообщений, документов, фотографий и управления
+/// сообщениями.
 /// </summary>
 public class TelegramChatService(ConfigService configService, TelegramMessageDataProcessor messageDataProcessor,
         TelegramMessageHandler messageHandler,
@@ -32,7 +32,7 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
     private TelegramBotClient? _botClient;
 
     /// <summary>
-    ///     Инициализирует TelegramChatService, загружая конфигурацию.
+    /// Инициализирует TelegramChatService, загружая конфигурацию.
     /// </summary>
     /// <returns>Задача, представляющая выполнение инициализации.</returns>
     public async Task InitializeAsync()
@@ -57,7 +57,7 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
     }
 
     /// <summary>
-    ///     Асинхронно извлекает изображение в формате Base64 из сообщения Telegram, если оно существует.
+    /// Асинхронно извлекает изображение в формате Base64 из сообщения Telegram, если оно существует.
     /// </summary>
     /// <param name="context">Контекст чата Telegram.</param>
     /// <param name="message">Полученное сообщение в чате.</param>
@@ -69,12 +69,12 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
     }
 
     /// <summary>
-    ///     Событие, которое вызывается при получении нового сообщения в чате.
+    /// Событие, которое вызывается при получении нового сообщения в чате.
     /// </summary>
     public event EventHandler<MessageReceivedEventArgs>? MessageReceived;
 
     /// <summary>
-    ///     Подключает клиента к Telegram и начинает обработку сообщений.
+    /// Подключает клиента к Telegram и начинает обработку сообщений.
     /// </summary>
     public Task Connect()
     {
@@ -82,17 +82,23 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
         {
             if (_token == null) return Task.CompletedTask;
 
-            // Сохраняем текущую дату подключения для проверки новых сообщений
-            _dateTelegramConnect = DateTime.Now;
+            lock (this) // Использование блокировки для защиты доступа к _cts
+            {
+                // Сохраняем текущую дату подключения для проверки новых сообщений
+                _dateTelegramConnect = DateTime.Now;
 
-            // Отменяем и освобождаем существующий `CancellationTokenSource`, если он есть
-            _cts?.Cancel();
-            _cts?.Dispose();
+                // Проверка существования и состояния _cts перед отменой
+                if (_cts != null)
+                {
+                    if (!_cts.IsCancellationRequested) _cts.Cancel();
+                    _cts.Dispose();
+                }
 
-            // Создаем новый `CancellationTokenSource` для нового цикла получения сообщений
-            _cts = new CancellationTokenSource();
+                // Создание нового CancellationTokenSource
+                _cts = new CancellationTokenSource();
+            }
 
-            // Начинаем получать сообщения с новым токеном
+            // Начало получения сообщений с использованием нового токена
             botClient.StartReceiving(HandleBotUpdate, HandleBotError, cancellationToken: _cts.Token);
             Log.ForContext("ConnectionEvent", true).Information("Соединение с Telegram установлено.");
 
@@ -100,9 +106,8 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
         });
     }
 
-
     /// <summary>
-    ///     Отправляет сообщение в чат Telegram.
+    /// Отправляет сообщение в чат Telegram.
     /// </summary>
     /// <param name="message">Текст сообщения.</param>
     /// <param name="context">Контекст чата, содержащий данные для отправки сообщения.</param>
@@ -122,7 +127,7 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
     }
 
     /// <summary>
-    ///     Освобождает ресурсы и завершает работу с TelegramBotClient.
+    /// Освобождает ресурсы и завершает работу с TelegramBotClient.
     /// </summary>
     public void Dispose()
     {
@@ -133,7 +138,7 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
     }
 
     /// <summary>
-    ///     Отправляет документ в чат Telegram по указанному URL.
+    /// Отправляет документ в чат Telegram по указанному URL.
     /// </summary>
     /// <param name="url">URL документа для отправки.</param>
     /// <param name="context">Контекст чата, содержащий данные для отправки документа.</param>
@@ -154,7 +159,7 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
     }
 
     /// <summary>
-    ///     Отправляет сообщение с поддержкой Markdown разметки в чат Telegram.
+    /// Отправляет сообщение с поддержкой Markdown разметки в чат Telegram.
     /// </summary>
     /// <param name="message">Текст сообщения с Markdown-разметкой.</param>
     /// <param name="context">Контекст чата, содержащий данные для отправки сообщения.</param>
@@ -174,7 +179,7 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
     }
 
     /// <summary>
-    ///     Подготавливает сообщение перед отправкой, показывая эффект "печати" в Telegram.
+    /// Подготавливает сообщение перед отправкой, показывая эффект "печати" в Telegram.
     /// </summary>
     /// <param name="context">Контекст чата, в котором нужно показать действие печати.</param>
     /// <returns>Задача, представляющая выполнение операции подготовки сообщения.</returns>
@@ -188,7 +193,7 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
     }
 
     /// <summary>
-    ///     Отправляет фотографию в чат Telegram по указанному URL.
+    /// Отправляет фотографию в чат Telegram по указанному URL.
     /// </summary>
     /// <param name="url">URL фотографии для отправки.</param>
     /// <param name="context">Контекст чата, содержащий данные для отправки фотографии.</param>
@@ -209,7 +214,31 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
     }
 
     /// <summary>
-    ///     Отправляет стикер в указанный канал Telegram.
+    /// Отправляет фотографию в чат Telegram по указанному base64Image.
+    /// </summary>
+    /// <param name="base64Image">base64Image строка фотографии для отправки.</param>
+    /// <param name="context">Контекст чата, содержащий данные для отправки фотографии.</param>
+    /// <returns>Задача, представляющая выполнение операции отправки фотографии.</returns>
+    public Task SendPhotoBase64Async(string base64Image, ChatContext context)
+    {
+        return ExecuteIfServiceIsReady(async botClient =>
+        {
+            if (context is not TelegramChatContext telegramContext) return;
+
+            var imageBytes = Convert.FromBase64String(base64Image);
+            using var stream = new MemoryStream(imageBytes);
+            var file = new InputFileStream(stream);
+            var replyParameters = new ReplyParameters
+            {
+                MessageId = telegramContext.MessageId
+            };
+            await botClient.SendPhoto(telegramContext.ChannelId, file,
+                replyParameters: replyParameters).ConfigureAwait(false);
+        });
+    }
+
+    /// <summary>
+    /// Отправляет стикер в указанный канал Telegram.
     /// </summary>
     /// <param name="sticker">Идентификатор стикера.</param>
     /// <param name="context">Контекст чата, содержащий данные для отправки сообщения.</param>
@@ -225,7 +254,7 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
     }
 
     /// <summary>
-    ///     Удаляет последние сообщения в чате Telegram.
+    /// Удаляет последние сообщения в чате Telegram.
     /// </summary>
     /// <param name="context">Контекст чата, содержащий данные о канале и сообщениях.</param>
     /// <param name="count">Количество сообщений для удаления.</param>
@@ -241,7 +270,7 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
     }
 
     /// <summary>
-    ///     Отправляет сообщение в указанный канал Telegram.
+    /// Отправляет сообщение в указанный канал Telegram.
     /// </summary>
     /// <param name="message">Текст сообщения для отправки.</param>
     /// <param name="channel">Идентификатор канала.</param>
@@ -256,7 +285,7 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
     }
 
     /// <summary>
-    ///     Отправляет фотографию в указанный канал Telegram по URL.
+    /// Отправляет фотографию в указанный канал Telegram по URL.
     /// </summary>
     /// <param name="url">URL фотографии для отправки.</param>
     /// <param name="channel">Идентификатор канала.</param>
@@ -272,7 +301,7 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
     }
 
     /// <summary>
-    ///     Отправляет сообщение в канал Telegram и закрепляет его как важное.
+    /// Отправляет сообщение в канал Telegram и закрепляет его как важное.
     /// </summary>
     /// <param name="message">Сообщение для отправки.</param>
     /// <param name="channel">Идентификатор канала.</param>
@@ -288,7 +317,7 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
     }
 
     /// <summary>
-    ///     Открепляет последнее закрепленное сообщение в указанном канале Telegram.
+    /// Открепляет последнее закрепленное сообщение в указанном канале Telegram.
     /// </summary>
     /// <param name="channel">Идентификатор канала.</param>
     /// <returns>Задача, представляющая выполнение операции открепления сообщения.</returns>
@@ -302,8 +331,8 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
     }
 
     /// <summary>
-    ///     Выполняет указанное действие с клиентом Telegram, если клиент не равен null, сервис инициализирован и не завершён.
-    ///     Это гарантирует, что действия не будут выполняться, если клиент не инициализирован или завершён.
+    /// Выполняет указанное действие с клиентом Telegram, если клиент не равен null, сервис инициализирован и не завершён.
+    /// Это гарантирует, что действия не будут выполняться, если клиент не инициализирован или завершён.
     /// </summary>
     /// <param name="action">Функция, которая должна быть выполнена с клиентом Telegram.</param>
     /// <param name="methodName">Имя метода, вызвавшего выполнение этой функции. Используется для логирования.</param>
@@ -323,7 +352,7 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
     }
 
     /// <summary>
-    ///     Получает временную метку сообщения из обновления Telegram.
+    /// Получает временную метку сообщения из обновления Telegram.
     /// </summary>
     /// <param name="update">Обновление Telegram.</param>
     /// <returns>Временная метка сообщения или null, если не найдено.</returns>
@@ -333,7 +362,7 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
     }
 
     /// <summary>
-    ///     Обрабатывает ошибки, возникшие в боте Telegram, и инициирует переподключение при необходимости.
+    /// Обрабатывает ошибки, возникшие в боте Telegram, и инициирует переподключение при необходимости.
     /// </summary>
     /// <param name="client">Клиент Telegram, который вызвал ошибку.</param>
     /// <param name="exception">Исключение, вызвавшее ошибку.</param>
@@ -344,14 +373,12 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
         Log.ForContext("ConnectionEvent", true).Error(exception, "Произошла ошибка в Telegram боте.");
 
         if (exception is ApiRequestException apiException)
-        {
             // Если ошибка связана с конфликтом получения обновлений
             if (apiException.Message.Contains("terminated by other getUpdates request"))
             {
                 Log.Error("Ошибка конфликта: возможно, запущено несколько экземпляров бота. Переподключение остановлено.");
                 return;
             }
-        }
 
         if (_botClient != null)
         {
@@ -367,10 +394,8 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
         }
     }
 
-
-
     /// <summary>
-    ///     Обрабатывает обновления, поступающие от Telegram, включая новые и отредактированные сообщения.
+    /// Обрабатывает обновления, поступающие от Telegram, включая новые и отредактированные сообщения.
     /// </summary>
     /// <param name="client">Клиент Telegram, который вызвал обновление.</param>
     /// <param name="update">Обновление, содержащее информацию о новом или отредактированном сообщении.</param>
@@ -402,7 +427,7 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
     }
 
     /// <summary>
-    ///     Обрабатывает получение текстового сообщения из Telegram и инициирует его обработку.
+    /// Обрабатывает получение текстового сообщения из Telegram и инициирует его обработку.
     /// </summary>
     /// <param name="message">Объект сообщения из Telegram.</param>
     /// <returns>Задача, представляющая выполнение обработки сообщения.</returns>
@@ -422,7 +447,7 @@ public class TelegramChatService(ConfigService configService, TelegramMessageDat
     }
 
     /// <summary>
-    ///     Проверяет, было ли сообщение отправлено после подключения бота к Telegram.
+    /// Проверяет, было ли сообщение отправлено после подключения бота к Telegram.
     /// </summary>
     /// <param name="update">Обновление сообщения, полученное от Telegram.</param>
     /// <returns>True, если сообщение отправлено после подключения бота, иначе False.</returns>

@@ -221,7 +221,9 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IAsyncInitializable>(sp => sp.GetRequiredService<GeminiSettingsProvider>())
             .AddSingleton<ChatGeminiService>()
             .AddSingleton<IAsyncInitializable>(sp => sp.GetRequiredService<ChatGeminiService>())
-            .AddSingleton<AskGeminiService>();
+            .AddSingleton<AskGeminiService>()
+            .AddSingleton<IAsyncInitializable>(sp => sp.GetRequiredService<ImageGenerationService>())
+            .AddSingleton<ImageGenerationService>();
     }
 
     /// <summary>
@@ -317,6 +319,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IChatCommand, GoogleSearchWithNeuralNetworkCommand>()
             .AddSingleton<IChatCommand, HoroscopeCommand>()
             .AddSingleton<IChatCommand, ImageCommand>()
+            .AddSingleton<IChatCommand, ImageGenerateCommand>()
             .AddSingleton<IChatCommand, LikenessCommand>()
             .AddSingleton<IChatCommand, MbtiCommand>()
             .AddSingleton<IChatCommand, MultipleImageCommand>()
