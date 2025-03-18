@@ -125,11 +125,11 @@ public partial class ChatGeminiService(ConfigService configService, GeminiSettin
             // Получение истории чата для текущей платформы
             var chatHistory = await GetChatHistoryForPlatformAsync(platform).ConfigureAwait(false);
 
-            // Обработка сообщения на которое ответил пользователь
-            if (replyInfo != null) await HandleReplyAsync(replyInfo, chatHistory, platform).ConfigureAwait(false);
-            
             // Уведомление о том, что прошло много времени с последней беседы
             await CheckLastMessageTimeAsync(platform);
+
+            // Обработка сообщения на которое ответил пользователь
+            if (replyInfo != null) await HandleReplyAsync(replyInfo, chatHistory, platform).ConfigureAwait(false);
 
             // Обработка и добавление сообщения в историю
             userMessage = PreProcessMessage(userMessage);

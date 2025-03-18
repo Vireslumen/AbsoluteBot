@@ -39,6 +39,23 @@ public class GeminiSettingsProvider(ConfigService configService, HttpClient http
     }
 
     /// <summary>
+    ///     Отправка HTTP-запроса к модели и получение текста ответа.
+    /// </summary>
+    /// <param name="jsonData">JSON-данные запроса.</param>
+    /// <param name="url">URL для отправки запроса.</param>
+    /// <returns>Текстовый ответ модели или null в случае ошибки.</returns>
+    public async Task<string?> FetchImageModelResponseAsync(string jsonData, string url)
+    {
+        var content = new StringContent(jsonData, Encoding.UTF8, "application/json");
+        var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
+        var response = await httpClient.SendAsync(request).ConfigureAwait(false);
+        var result = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+        var text = ParseResponse(result);
+        return text;
+    }
+
+    /// <summary>
     ///     Извлечение текста ответа из JSON-ответа модели.
     /// </summary>
     /// <param name="result">Ответ от модели в формате JSON.</param>
