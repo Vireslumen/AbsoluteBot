@@ -222,6 +222,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<ChatGeminiService>()
             .AddSingleton<IAsyncInitializable>(sp => sp.GetRequiredService<ChatGeminiService>())
             .AddSingleton<AskGeminiService>()
+            .AddSingleton<GeminiImageGenerationService>()
             .AddSingleton<IAsyncInitializable>(sp => sp.GetRequiredService<ImageGenerationService>())
             .AddSingleton<ImageGenerationService>();
     }
@@ -320,6 +321,7 @@ public static class ServiceCollectionExtensions
             .AddSingleton<IChatCommand, HoroscopeCommand>()
             .AddSingleton<IChatCommand, ImageCommand>()
             .AddSingleton<IChatCommand, ImageGenerateCommand>()
+            .AddSingleton<IChatCommand, GeminiImageGenerateCommand>()
             .AddSingleton<IChatCommand, LikenessCommand>()
             .AddSingleton<IChatCommand, MbtiCommand>()
             .AddSingleton<IChatCommand, MultipleImageCommand>()
